@@ -1,0 +1,33 @@
+# Virtual Environment
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment variables
+.env
+
+# Data files (downloaded/cached data - regenerable)
+data/
+src/data/
+*.parquet
+*.csv
+
+# Outputs (generated analysis files)
+outputs/
+src/outputs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+chart/
+*.png
