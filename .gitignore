@@ -21,6 +21,7 @@ src/data/
 # Outputs (generated analysis files)
 outputs/
 src/outputs/
+shared_outputs/
 
 # IDE
 .vscode/
