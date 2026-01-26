@@ -35,6 +35,7 @@ __version__ = "6.0.0"
 # =============================================================================
 
 class MemoConfig:
+    # Anthropic config
     API_ENDPOINT = "https://api.anthropic.com/v1/messages"
     MODEL = "claude-sonnet-4-5-20250929"
     MAX_TOKENS = 8192
@@ -44,7 +45,13 @@ class MemoConfig:
     MAX_RETRIES = 3
     RETRY_DELAY = 2.0
     REQUEST_TIMEOUT = 180.0
-    DEFAULT_OUTPUT_DIR = OUTPUT_DIR
+    # Output to shared_outputs at repo root (4 levels up from src/memo_generator.py)
+    DEFAULT_OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "shared_outputs"
+
+    # OpenAI fallback config
+    OPENAI_API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
+    OPENAI_MODEL = "gpt-4o"
+    OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 
 
 class RecommendationType(Enum):
@@ -963,11 +970,28 @@ Write comprehensive memo. Return valid JSON only."""
 
 class ClaudeClient:
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get(MemoConfig.API_KEY_ENV_VAR, MemoConfig.DEFAULT_API_KEY)
+        self.anthropic_key = api_key or os.environ.get(MemoConfig.API_KEY_ENV_VAR, MemoConfig.DEFAULT_API_KEY)
+        self.openai_key = os.environ.get(MemoConfig.OPENAI_API_KEY_ENV_VAR)
         self.logger = LOGGER
-    
+
+        # Determine which API to use
+        if self.anthropic_key:
+            self.use_openai = False
+            self.logger.info("Using Anthropic Claude API")
+        elif self.openai_key:
+            self.use_openai = True
+            self.logger.info("Using OpenAI API (fallback)")
+        else:
+            self.use_openai = False  # Will fail gracefully
+            self.logger.warning("No API keys found (ANTHROPIC_API_KEY or OPENAI_API_KEY)")
+
     def generate(self, system: str, user: str) -> Tuple[str, int]:
-        headers = {"Content-Type": "application/json", "x-api-key": self.api_key, "anthropic-version": "2023-06-01"}
+        if self.use_openai:
+            return self._generate_openai(system, user)
+        return self._generate_anthropic(system, user)
+
+    def _generate_anthropic(self, system: str, user: str) -> Tuple[str, int]:
+        headers = {"Content-Type": "application/json", "x-api-key": self.anthropic_key, "anthropic-version": "2023-06-01"}
         payload = {"model": MemoConfig.MODEL, "max_tokens": MemoConfig.MAX_TOKENS, "temperature": MemoConfig.TEMPERATURE, "system": system, "messages": [{"role": "user", "content": user}]}
         for attempt in range(MemoConfig.MAX_RETRIES):
             try:
@@ -983,6 +1007,32 @@ class ClaudeClient:
             if attempt < MemoConfig.MAX_RETRIES - 1:
                 time.sleep(MemoConfig.RETRY_DELAY * (attempt + 1))
         raise RuntimeError("Claude API failed")
+
+    def _generate_openai(self, system: str, user: str) -> Tuple[str, int]:
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.openai_key}"}
+        payload = {
+            "model": MemoConfig.OPENAI_MODEL,
+            "max_tokens": MemoConfig.MAX_TOKENS,
+            "temperature": MemoConfig.TEMPERATURE,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user}
+            ]
+        }
+        for attempt in range(MemoConfig.MAX_RETRIES):
+            try:
+                self.logger.info(f"OpenAI API attempt {attempt + 1}")
+                resp = requests.post(MemoConfig.OPENAI_API_ENDPOINT, headers=headers, json=payload, timeout=MemoConfig.REQUEST_TIMEOUT)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    tokens = data.get("usage", {}).get("completion_tokens", 0)
+                    return content, tokens
+            except Exception as e:
+                self.logger.warning(f"OpenAI API error: {e}")
+            if attempt < MemoConfig.MAX_RETRIES - 1:
+                time.sleep(MemoConfig.RETRY_DELAY * (attempt + 1))
+        raise RuntimeError("OpenAI API failed")
 
 
 # =============================================================================
@@ -1534,8 +1584,8 @@ class SixPagePDFGenerator:
 class OutputFormatter:
     def __init__(self, output_dir: Optional[Path] = None):
         if output_dir is None:
-            # Go up 3 levels: memo_generator.py → fundamental_memberX → fundamental_agents → master-analyst-agent
-            master_repo_root = Path(__file__).parent.parent.parent
+            # Go up 4 levels: src → daria_fundamental_agent → fundamental_agents → master-analyst-agent
+            master_repo_root = Path(__file__).parent.parent.parent.parent
             self.output_dir = master_repo_root / "shared_outputs"
         else:
             self.output_dir = output_dir
@@ -1546,7 +1596,8 @@ class OutputFormatter:
     def generate_all(self, result: InvestmentMemoResult, ticker: str) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
         json_path = self._save_json(result, ticker)
         md_path = self._save_markdown(result, ticker)
-        pdf_path = self.pdf.generate(result, ticker)
+        # pdf_path = self.pdf.generate(result, ticker)
+        pdf_path = None
         return json_path, md_path, pdf_path
     
     def _save_json(self, result: InvestmentMemoResult, ticker: str) -> Path:

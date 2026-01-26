@@ -18,6 +18,9 @@ src/data/
 *.parquet
 *.csv
 
+# Daria agent cache files
+fundamental_agents/daria_fundamental_agent/cache/
+
 # Outputs (generated analysis files)
 outputs/
 src/outputs/

@@ -88,6 +88,11 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load .env from repo root (go up 2 levels: daria_fundamental_agent -> fundamental_agents -> master-analyst-agent)
+repo_root = Path(__file__).parent.parent.parent
+load_dotenv(repo_root / ".env")
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -1545,7 +1550,8 @@ def print_ddm_sensitivity(result: 'DDMValuationResult'):
     print()
     
     # Header row
-    header = f"  {'Growth \\ Ke':<12}"
+    growth_ke_label = "Growth \\ Ke"
+    header = f"  {growth_ke_label:<12}"
     for ke in matrix.discount_rates:
         header += f"{format_percent(ke):>10}"
     print(header)

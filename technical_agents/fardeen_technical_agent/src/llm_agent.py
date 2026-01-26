@@ -43,9 +43,12 @@ except ImportError:
     OPENAI_AVAILABLE = False
 
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from repo root .env file
+# Go up from src/ -> fardeen_technical_agent/ -> technical_agents/ -> master-analyst-agent/
+repo_root = Path(__file__).parent.parent.parent.parent
+load_dotenv(repo_root / ".env")
 
 
 # =============================================================================
@@ -94,6 +97,9 @@ class TradeRecommendation:
     support_levels: Optional[List[float]] = None
     resistance_levels: Optional[List[float]] = None
 
+    # Performance analysis (merged from analyse_performance)
+    performance_analysis: Optional[Dict[str, Any]] = None
+
     def to_dict(self) -> Dict[str, Any]:
         result = {
             'recommendation': self.recommendation.value,
@@ -120,6 +126,8 @@ class TradeRecommendation:
             result['support_levels'] = self.support_levels
         if self.resistance_levels:
             result['resistance_levels'] = self.resistance_levels
+        if self.performance_analysis:
+            result['performance_analysis'] = self.performance_analysis
         return result
 
 
@@ -360,7 +368,7 @@ class LLMAgent:
         report = agent.generate_full_report(context, metrics)
     """
 
-    # System prompts for different analysis types
+    # Single unified prompt for complete analysis (trade + performance in one API call)
     TRADE_ANALYSIS_PROMPT = """You are a senior quantitative analyst at Goldman Sachs Asset Management writing an institutional trade note.
 
 CRITICAL CONSTRAINT:
@@ -413,6 +421,13 @@ ANALYSIS FRAMEWORK:
    - Synthesize why this {signal} is compelling at current levels
    - What makes this an institutional-quality opportunity?
 
+8. Strategy Performance Assessment (if backtest metrics provided)
+   - Evaluate CAGR vs benchmarks (S&P ~10% annually)
+   - Assess Sharpe ratio quality (>1 good, >2 excellent)
+   - Review Monte Carlo percentile (>60th suggests real edge vs luck)
+   - Identify strategy strengths and weaknesses
+   - Provide confidence in edge (is this skill or luck?)
+
 CHAIN OF THOUGHT:
 Provide detailed reasoning in your rationale, not just conclusions.
 
@@ -422,7 +437,7 @@ Provide your analysis in this exact JSON structure:
     "recommendation": "{signal}",
     "confidence": {confidence},
     "rationale": "Comprehensive 4-6 sentence explanation covering: (1) why the signal was generated, (2) key supporting indicators, (3) regime context, (4) any conflicts and why they were outweighed",
-    "technical_analysis_summary": "4-6 sentence institutional-quality narrative explaining the complete technical picture. Example style: 'XYZ technical structure reveals a stock in [oversold/overbought] territory while maintaining [support/resistance] integrity... Price action at $X sits Y% [above/below] the Bollinger Band middle... The momentum complex shows [readings]... ADX at Z indicates [trend strength]...'",
+    "technical_analysis_summary": "4-6 sentence institutional-quality narrative explaining the complete technical picture.",
     "entry_price": float,
     "stop_loss": float,
     "take_profit": float,
@@ -457,45 +472,17 @@ Provide your analysis in this exact JSON structure:
         }},
         "expected_value_pct": float
     }},
-    "investment_thesis": "2-3 sentence synthesis of why this {signal} is compelling at current levels and what makes it institutional-quality"
+    "investment_thesis": "2-3 sentence synthesis of why this {signal} is compelling at current levels and what makes it institutional-quality",
+    "performance_analysis": {{
+        "summary": "One paragraph assessment of strategy quality based on backtest metrics",
+        "overall_assessment": "excellent|good|fair|poor",
+        "confidence_in_edge": 0.0-1.0,
+        "strengths": ["strength 1", "strength 2"],
+        "weaknesses": ["weakness 1", "weakness 2"],
+        "warnings": ["warning if any"],
+        "suggestions": ["improvement suggestion if any"]
+    }}
 }}"""
-
-    PERFORMANCE_ANALYSIS_PROMPT = """You are a senior portfolio manager reviewing strategy performance.
-Analyse the backtest results and provide institutional-quality assessment.
-
-ANALYSIS FRAMEWORK:
-1. Return Analysis
-   - Is CAGR attractive vs benchmarks?
-   - Is total return meaningful given the period?
-
-2. Risk-Adjusted Performance
-   - Sharpe ratio quality (>1 good, >2 excellent)
-   - Sortino for downside focus
-   - Calmar for drawdown efficiency
-
-3. Statistical Significance
-   - Monte Carlo percentile (want >60th)
-   - Probability of loss
-   - Is the edge real or luck?
-
-4. Trade Quality
-   - Win rate assessment
-   - Profit factor (want >1.5)
-   - Average trade quality
-
-OUTPUT FORMAT:
-{
-    "summary": "one paragraph executive summary",
-    "strengths": ["strength1", "strength2"],
-    "weaknesses": ["weakness1", "weakness2"],
-    "attribution": {
-        "factor": "explanation of contribution"
-    },
-    "warnings": ["warning1", "warning2"],
-    "suggestions": ["improvement1", "improvement2"],
-    "overall_assessment": "excellent|good|fair|poor",
-    "confidence_in_edge": 0.0-1.0
-}"""
 
     def __init__(
         self,
@@ -789,7 +776,29 @@ SIGNAL SYSTEM:
 - Signal Confidence: {context.signal_confidence:.1%}
 - Confluence Score: {context.confluence_score:.2f}
 - Active Strategy: {context.strategy}
-
+"""
+        # Add backtest metrics if available (for performance analysis section)
+        if context.cagr is not None:
+            sortino_str = f"{context.sortino_ratio:.2f}" if context.sortino_ratio else "N/A"
+            user_message += f"""
+BACKTEST PERFORMANCE METRICS:
+- CAGR: {context.cagr:.1%}
+- Sharpe Ratio: {context.sharpe_ratio:.2f}
+- Sortino Ratio: {sortino_str}
+- Max Drawdown: {context.max_drawdown:.1%}
+- Win Rate: {context.win_rate:.1%}
+- Profit Factor: {context.profit_factor:.2f}
+- Total Trades: {context.total_trades}
+"""
+        # Add Monte Carlo results if available
+        if context.mc_cagr_percentile is not None:
+            user_message += f"""
+MONTE CARLO ANALYSIS:
+- CAGR Percentile: {context.mc_cagr_percentile:.0f}th (vs random)
+- Statistically Significant: {"Yes" if context.mc_is_significant else "No"}
+- Probability of 10%+ Loss: {context.mc_prob_loss:.1%}
+"""
+        user_message += """
 Provide your analysis following the chain-of-thought framework and output in JSON format.
 """
 
@@ -852,6 +861,9 @@ Provide your analysis following the chain-of-thought framework and output in JSO
             support_levels = data.get('support_levels', [])
             resistance_levels = data.get('resistance_levels', [])
 
+            # Extract performance analysis (merged from separate API call)
+            performance_analysis = data.get('performance_analysis', None)
+
             return TradeRecommendation(
                 recommendation=rec_map.get(data.get('recommendation', 'HOLD'), Recommendation.HOLD),
                 confidence=float(confidence),
@@ -871,7 +883,8 @@ Provide your analysis following the chain-of-thought framework and output in JSO
                 scenarios=scenarios,
                 investment_thesis=investment_thesis,
                 support_levels=support_levels,
-                resistance_levels=resistance_levels
+                resistance_levels=resistance_levels,
+                performance_analysis=performance_analysis
             )
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
@@ -990,7 +1003,8 @@ Provide institutional-quality assessment in JSON format.
     def generate_full_report(
         self,
         context: AnalysisContext,
-        include_performance: bool = True
+        include_performance: bool = True,
+        recommendation: Optional[TradeRecommendation] = None
     ) -> str:
         """
         Generate comprehensive trade report.
@@ -998,17 +1012,30 @@ Provide institutional-quality assessment in JSON format.
         Args:
             context: AnalysisContext with all data
             include_performance: Whether to include performance analysis
+            recommendation: Optional pre-computed recommendation (avoids duplicate API call)
 
         Returns:
             Formatted markdown report
         """
-        # Get trade recommendation
-        recommendation = self.generate_trade_recommendation(context)
+        # Use provided recommendation or generate new one (single API call)
+        if recommendation is None:
+            recommendation = self.generate_trade_recommendation(context)
 
-        # Get performance analysis if requested and data available
+        # Performance analysis is now embedded in the recommendation (no separate API call)
         performance = None
-        if include_performance and context.cagr is not None:
-            performance = self.analyse_performance(context)
+        if include_performance and recommendation.performance_analysis:
+            # Convert dict to PerformanceAnalysis object for compatibility
+            pa = recommendation.performance_analysis
+            performance = PerformanceAnalysis(
+                summary=pa.get('summary', ''),
+                strengths=pa.get('strengths', []),
+                weaknesses=pa.get('weaknesses', []),
+                attribution=pa.get('attribution', {}),
+                warnings=pa.get('warnings', []),
+                suggestions=pa.get('suggestions', []),
+                overall_assessment=pa.get('overall_assessment', 'fair'),
+                confidence_in_edge=float(pa.get('confidence_in_edge', 0.5))
+            )
 
         # Build report
         report = self._format_report(context, recommendation, performance)
@@ -1131,7 +1158,8 @@ Strengths:
     def generate_json_report(
         self,
         context: AnalysisContext,
-        include_performance: bool = True
+        include_performance: bool = True,
+        recommendation: Optional[TradeRecommendation] = None
     ) -> Dict[str, Any]:
         """
         Generate comprehensive trade analysis as structured JSON.
@@ -1142,17 +1170,16 @@ Strengths:
         Args:
             context: AnalysisContext with all data
             include_performance: Whether to include performance analysis
+            recommendation: Optional pre-computed recommendation (avoids duplicate API call)
 
         Returns:
             Dictionary with complete analysis, ready for JSON serialization
         """
-        # Get trade recommendation
-        recommendation = self.generate_trade_recommendation(context)
+        # Use provided recommendation or generate new one (single API call)
+        if recommendation is None:
+            recommendation = self.generate_trade_recommendation(context)
 
-        # Get performance analysis if requested and data available
-        performance = None
-        if include_performance and context.cagr is not None:
-            performance = self.analyse_performance(context)
+        # Performance analysis is now embedded in recommendation (no separate API call)
 
         # Build structured output
         output = {
@@ -1265,18 +1292,9 @@ Strengths:
             if context.volume_ratio is not None:
                 output["technical_analysis"]["volume_ratio"] = context.volume_ratio
 
-        # Add performance analysis if available
-        if performance:
-            output["performance_analysis"] = {
-                "overall_assessment": performance.overall_assessment,
-                "confidence_in_edge": performance.confidence_in_edge,
-                "summary": performance.summary,
-                "strengths": performance.strengths,
-                "weaknesses": performance.weaknesses,
-                "attribution": performance.attribution,
-                "warnings": performance.warnings,
-                "suggestions": performance.suggestions
-            }
+        # Add performance analysis if available (now embedded in recommendation)
+        if include_performance and recommendation.performance_analysis:
+            output["performance_analysis"] = recommendation.performance_analysis
 
         # Add comprehensive backtest metrics if available
         if context.cagr is not None:
@@ -1425,33 +1443,18 @@ Strengths:
         # Use ticker as filename (overwrites existing files)
         base_filename = f"technical_fardeen_{context.ticker}"
 
-        # Generate the analysis data once
-        json_data = self.generate_json_report(context, include_performance)
-        text_report = self.generate_full_report(context, include_performance)
+        # Generate recommendation ONCE (single API call)
+        recommendation = self.generate_trade_recommendation(context)
 
-        # Save files
+        # Generate JSON report (reuses recommendation, no additional API call)
+        json_data = self.generate_json_report(context, include_performance, recommendation=recommendation)
+
+        # Save JSON only
         paths = {}
-
-        # Save JSON
         json_path = os.path.join(output_dir, f"{base_filename}.json")
         paths['json'] = self._save_json(json_data, json_path)
 
-        # Save TXT
-        txt_path = os.path.join(output_dir, f"{base_filename}.txt")
-        paths['txt'] = self._save_txt(text_report, txt_path, analyst_name, agent_name)
-
-        # Save PDF
-        pdf_path = os.path.join(output_dir, f"{base_filename}.pdf")
-        paths['pdf'] = self._save_pdf(
-            json_data, text_report, pdf_path,
-            analyst_name=analyst_name,
-            agent_name=agent_name
-        )
-
-        print(f"\nOutputs saved to {output_dir}/:")
-        print(f"  - JSON: {os.path.basename(paths['json'])}")
-        print(f"  - TXT:  {os.path.basename(paths['txt'])}")
-        print(f"  - PDF:  {os.path.basename(paths['pdf'])}")
+        print(f"\nOutput saved: {json_path}")
 
         return paths
 
@@ -2157,7 +2160,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         ))
 
         # Build PDF
-        doc.build(content)
+        #doc.build(content)
 
         return filepath
 
@@ -2648,12 +2651,12 @@ if __name__ == "__main__":
         for risk in recommendation.risks[:3]:
             print(f"  - {risk}")
 
-        # Generate JSON report (primary output for master agent)
+        # Reuse the recommendation for all outputs (single API call already made above)
         print("\n" + "=" * 70)
-        print("GENERATING JSON REPORT (for master agent)")
+        print("GENERATING JSON REPORT (reusing recommendation - no extra API call)")
         print("=" * 70)
 
-        json_output = agent.generate_json_report(context)
+        json_output = agent.generate_json_report(context, recommendation=recommendation)
         print("\nJSON Output Structure:")
         print(f"  - metadata: ticker, date, price, model")
         print(f"  - recommendation: {json_output['recommendation']['action']} ({json_output['recommendation']['confidence']:.0%})")
@@ -2664,7 +2667,7 @@ if __name__ == "__main__":
         print(f"  - risk_factors: {len(json_output['risk_factors'])} items")
         print(f"  - catalysts: {len(json_output['catalysts'])} items")
         if 'performance_analysis' in json_output:
-            print(f"  - performance_analysis: {json_output['performance_analysis']['overall_assessment']}")
+            print(f"  - performance_analysis: {json_output['performance_analysis'].get('overall_assessment', 'N/A')}")
         if 'backtest_metrics' in json_output:
             print(f"  - backtest_metrics: CAGR={json_output['backtest_metrics']['return_metrics']['cagr']:.1%}, Sharpe={json_output['backtest_metrics']['risk_adjusted_metrics']['sharpe_ratio']:.2f}")
         if 'monte_carlo' in json_output:
@@ -2674,31 +2677,33 @@ if __name__ == "__main__":
         print("\n" + "-" * 70)
         print("FULL JSON OUTPUT:")
         print("-" * 70)
-        json_string = agent.generate_json_string(context)
+        json_string = json.dumps(json_output, indent=2, default=str)  # Reuse json_output
         print(json_string)
 
         # Also show text report for comparison
         print("\n" + "=" * 70)
-        print("TEXT REPORT (for human readability)")
+        print("TEXT REPORT (reusing recommendation - no extra API call)")
         print("=" * 70)
 
-        full_report = agent.generate_full_report(context)
+        full_report = agent.generate_full_report(context, recommendation=recommendation)
         print(full_report)
 
-        # Save all outputs to files
+        # Save all outputs to files (internally reuses recommendation)
         print("\n" + "=" * 70)
         print("SAVING OUTPUTS TO FILES")
         print("=" * 70)
 
-        output_paths = agent.save_all_outputs(
-            context,
-            analyst_name="Fardeen Idrus",
-            agent_name="Technical Analyst Agent"
+        # Save directly using already-generated data (no additional API calls)
+        output_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            "shared_outputs"
         )
+        os.makedirs(output_dir, exist_ok=True)
+        base_filename = f"technical_fardeen_{context.ticker}"
 
-        print("\nFiles saved:")
-        for format_type, path in output_paths.items():
-            print(f"  {format_type.upper()}: {path}")
+        json_path = os.path.join(output_dir, f"{base_filename}.json")
+        agent._save_json(json_output, json_path)
+        print(f"\nJSON saved: {json_path}")
 
     print("\n" + "=" * 70)
     print("LLM AGENT TEST COMPLETE")
