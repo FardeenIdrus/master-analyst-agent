@@ -33,6 +33,7 @@ AGENTS = [
     ("fundamental_daria", REPO_ROOT / "fundamental_agents" / "daria_fundamental_agent" / "run_demo.py"),
     ("fundamental_shakzod", REPO_ROOT / "fundamental_agents" / "shakzod_fundamental_agent" / "run_demo.py"),
     ("fundamental_lary", REPO_ROOT / "fundamental_agents" / "lary_fundamental_agent" / "agents.py"),
+    ("fundamental_mohamed", REPO_ROOT / "fundamental_agents" / "mohamed_fundamental_agent" / "src" / "ai_agent.py"),
 ]
 
 
