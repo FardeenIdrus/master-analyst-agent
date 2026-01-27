@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
+# OpenAI API configuration (fallback if Anthropic fails)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = "gpt-4o"
+
 
 class InvestmentRecommendation(Enum):
     STRONG_BUY = "STRONG BUY"
@@ -380,12 +384,6 @@ class MemoGenerator:
         return rec, conf
     
     def _generate_llm_sections(self, s: AnalysisSummary, rec: InvestmentRecommendation) -> Tuple[List[MemoSectionContent], str]:
-        import importlib.util
-        if importlib.util.find_spec('anthropic') is None:
-            raise RuntimeError("anthropic not installed")
-        import anthropic
-        if not self._client: self._client = anthropic.Anthropic(api_key=self._api_key)
-        
         prompt = f'''You are a senior equity analyst at Goldman Sachs writing an institutional investment memorandum.
 
 COMPANY: {s.company_name} ({s.ticker}) | RECOMMENDATION: {rec.value}
@@ -417,9 +415,43 @@ Write comprehensive analysis using this EXACT XML format. Each section should be
 <catalysts>4 numbered potential catalysts, 2-3 sentences each</catalysts>
 <conclusion>2 paragraphs summarizing the investment case</conclusion>
 </memo>'''
-        
-        msg = self._client.messages.create(model=self._model, max_tokens=8000, temperature=0.2, messages=[{"role": "user", "content": prompt}])
-        response = msg.content[0].text
+
+        # Try Anthropic first, fall back to OpenAI
+        response = None
+
+        # Try Anthropic
+        if self._api_key:
+            try:
+                import importlib.util
+                if importlib.util.find_spec('anthropic') is not None:
+                    import anthropic
+                    if not self._client:
+                        self._client = anthropic.Anthropic(api_key=self._api_key)
+                    msg = self._client.messages.create(model=self._model, max_tokens=8000, temperature=0.2, messages=[{"role": "user", "content": prompt}])
+                    response = msg.content[0].text
+                    logger.info("Generated memo using Anthropic Claude")
+            except Exception as e:
+                logger.warning(f"Anthropic API failed: {e}")
+
+        # Fall back to OpenAI
+        if response is None and OPENAI_API_KEY:
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=OPENAI_API_KEY)
+                completion = client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=8000,
+                    temperature=0.2
+                )
+                response = completion.choices[0].message.content
+                logger.info("Generated memo using OpenAI GPT-4o (fallback)")
+            except Exception as e:
+                logger.warning(f"OpenAI API failed: {e}")
+
+        if response is None:
+            raise RuntimeError("Both Anthropic and OpenAI APIs failed")
+
         return self._parse_xml_response(response, s, rec), response
     
     def _parse_xml_response(self, response: str, s: AnalysisSummary, rec: InvestmentRecommendation) -> List[MemoSectionContent]:

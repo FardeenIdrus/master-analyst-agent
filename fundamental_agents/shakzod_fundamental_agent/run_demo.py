@@ -43,6 +43,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import Tuple, Optional, Any
 
+# Load .env from master repo root
+from dotenv import load_dotenv
+REPO_ROOT = Path(__file__).parent.parent.parent
+load_dotenv(REPO_ROOT / ".env")
+
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
@@ -52,13 +57,11 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 # =============================================================================
 
 # Alpha Vantage API Key - Provides 5+ years of complete annual financial data
-# Get free key at: https://www.alphavantage.co/support/#api-key
-# Alpha Vantage API Key - Provides 5+ years of complete annual financial data
-# Get free key at: https://www.alphavantage.co/support/#api-key
-ALPHA_VANTAGE_API_KEY = "PZ3ALS5PSLJZS0W6"
+# Uses agent-specific env var with fallback to default key
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_KEY_SHAKZOD", "")
 
-# Set Alpha Vantage API key in environment
-if ALPHA_VANTAGE_API_KEY and not os.getenv("ALPHA_VANTAGE_API_KEY"):
+# Set Alpha Vantage API key in environment for internal modules
+if ALPHA_VANTAGE_API_KEY:
     os.environ["ALPHA_VANTAGE_API_KEY"] = ALPHA_VANTAGE_API_KEY
 
 # Claude API configuration - Anthropic API key for memo generation

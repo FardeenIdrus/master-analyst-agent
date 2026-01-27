@@ -16,6 +16,10 @@ load_dotenv()
 import os
 from pathlib import Path
 from datetime import datetime
+import sys
+
+# Ticker from command line or default 
+TICKER = sys.argv[1].upper() if len(sys.argv) > 1 else "AAPL"
 
 # === CONFIGURATION ===
 
@@ -28,6 +32,7 @@ AGENTS = [
     ("technical_fardeen", REPO_ROOT / "technical_agents" / "fardeen_technical_agent" / "src" / "llm_agent.py"),
     ("fundamental_daria", REPO_ROOT / "fundamental_agents" / "daria_fundamental_agent" / "run_demo.py"),
     ("fundamental_shakzod", REPO_ROOT / "fundamental_agents" / "shakzod_fundamental_agent" / "run_demo.py"),
+    ("fundamental_lary", REPO_ROOT / "fundamental_agents" / "lary_fundamental_agent" / "agents.py"),
 ]
 
 
@@ -36,21 +41,16 @@ AGENTS = [
 async def run_agent(name: str, script_path: Path) -> dict:
     """
     Execute a single agent as an async subprocess.
-
-    Args:
-        name: Display name for logging
-        script_path: Path to the agent's entry script
-
-    Returns:
-        Dict with agent name, status (success/failed/error), and duration or error message
     """
     print(f"[{name}] Starting...")
     start = datetime.now()
 
     try:
-        # Spawn subprocess with captured stdout/stderr, running from agent's directory
+        # Pass ticker to all agents
+        cmd = ["python", str(script_path), TICKER]
+        
         process = await asyncio.create_subprocess_exec(
-            "python", str(script_path),
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=script_path.parent
@@ -144,7 +144,7 @@ def synthesize_with_llm(outputs: list[dict]) -> dict:
     # Construct prompt with all analyst outputs (truncated to 15k chars for token limits)
     prompt = f"""You are a senior portfolio manager at a top-tier investment firm synthesizing research from multiple analysts into a comprehensive investment memo.
 
-You have received {len(outputs)} analyst reports for AAPL:
+You have received {len(outputs)} analyst reports for {TICKER}:
 
 {json.dumps(outputs, indent=2, default=str)[:15000]}
 
@@ -190,8 +190,8 @@ Create a detailed, institutional-grade investment recommendation memo. The inves
 
 Output as JSON with the following structure:
 {{
-    "ticker": "AAPL",
-    "company_name": "Apple Inc.",
+    "ticker": "{TICKER}",
+    "company_name": "<company name>",
     "analysis_date": "{datetime.now().strftime('%Y-%m-%d')}",
     "recommendation": "STRONG BUY/BUY/HOLD/SELL/STRONG SELL",
     "target_price": float,
@@ -287,7 +287,7 @@ def generate_pdf_report(synthesis: dict) -> Path:
     story = []
 
     # Title
-    ticker = synthesis.get('ticker', 'AAPL')
+    ticker = synthesis.get('ticker', TICKER)
     company = synthesis.get('company_name', 'Apple Inc.')
     story.append(Paragraph(f"{ticker} Investment Memo", title_style))
     story.append(Paragraph(f"{company}", ParagraphStyle('Sub', fontSize=14, textColor=GRAY, alignment=TA_CENTER)))
@@ -381,6 +381,8 @@ async def main():
     Main pipeline: run agents -> collect outputs -> synthesize -> save & display.
     """
     # Step 1: Execute all agents in parallel
+    print(f"\nAnalyzing: {TICKER}\n")  # Add this line
+    
     await run_all_agents()
 
     # Step 2: Collect outputs from shared directory
@@ -406,7 +408,7 @@ async def main():
     print("\n" + "=" * 60)
     print("FINAL RECOMMENDATION")
     print("=" * 60)
-    print(f"  Ticker: {synthesis.get('ticker', 'AAPL')}")
+    print(f"  Ticker: {synthesis.get('ticker', TICKER)}")
     print(f"  Recommendation: {synthesis.get('recommendation', 'N/A')}")
     print(f"  Target Price: ${synthesis.get('target_price', 0):.2f}")
     print(f"  Confidence: {synthesis.get('confidence', 0):.0f}%")

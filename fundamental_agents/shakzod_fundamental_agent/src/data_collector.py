@@ -739,17 +739,46 @@ class DataCollector:
                 
                 # Current price from Yahoo
                 info["current_price"] = self._safe_float(
-                    yf_info.get("currentPrice") or 
-                    yf_info.get("regularMarketPrice") or 
+                    yf_info.get("currentPrice") or
+                    yf_info.get("regularMarketPrice") or
                     yf_info.get("previousClose")
                 )
+
+                # Fallback: use yf.download() if .info failed (more reliable)
+                if not info.get("current_price"):
+                    try:
+                        hist = yf.download(ticker, period="1d", progress=False)
+                        if hist is not None and not hist.empty and 'Close' in hist.columns:
+                            close_val = hist['Close'].iloc[-1]
+                            # Handle both scalar and Series
+                            if hasattr(close_val, 'iloc'):
+                                close_val = close_val.iloc[0]
+                            info["current_price"] = self._safe_float(close_val)
+                            logger.info(f"Got current price from yf.download(): ${info['current_price']:.2f}")
+                    except Exception as e:
+                        logger.warning(f"yf.download() fallback failed: {e}")
                 info["52_week_high"] = info.get("52_week_high") or self._safe_float(yf_info.get("fiftyTwoWeekHigh"))
                 info["52_week_low"] = info.get("52_week_low") or self._safe_float(yf_info.get("fiftyTwoWeekLow"))
                 info["dividend_yield"] = info.get("dividend_yield") or self._safe_float(yf_info.get("dividendYield"))
                 
             except Exception as e:
                 logger.warning(f"Yahoo Finance info failed: {e}")
-        
+
+        # Final fallback: if we still don't have a price, try yf.download() directly
+        if YFINANCE_AVAILABLE and not info.get("current_price"):
+            try:
+                logger.info(f"Final fallback: fetching price via yf.download() for {ticker}")
+                hist = yf.download(ticker, period="1d", progress=False)
+                if hist is not None and not hist.empty and 'Close' in hist.columns:
+                    close_val = hist['Close'].iloc[-1]
+                    # Handle both scalar and Series
+                    if hasattr(close_val, 'iloc'):
+                        close_val = close_val.iloc[0]
+                    info["current_price"] = self._safe_float(close_val)
+                    logger.info(f"Final fallback got price: ${info['current_price']:.2f}")
+            except Exception as e:
+                logger.error(f"Final price fallback failed: {e}")
+
         return CompanyInfo(
             ticker=ticker,
             name=info.get("name", ticker),

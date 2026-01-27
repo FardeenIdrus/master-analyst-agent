@@ -583,11 +583,12 @@ class FundamentalAnalystAgent:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         files = {}
-        files['json'] = str(self._export_json(path, ts))
+        # Disabled local outputs - only export to shared_outputs
+        # files['json'] = str(self._export_json(path, ts))
         # files['markdown'] = str(self._export_markdown(path, ts))
         # files['html'] = str(self._export_html(path, ts))
-        files['pdf'] = str(self._export_pdf(path, ts))
-        files['shared'] = str(self._export_to_shared_outputs())  # Add this line
+        # files['pdf'] = str(self._export_pdf(path, ts))
+        files['shared'] = str(self._export_to_shared_outputs())
         
         logger.info(f"Results exported to {path}")
         return files

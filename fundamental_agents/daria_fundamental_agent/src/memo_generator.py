@@ -1595,7 +1595,8 @@ class OutputFormatter:
     
     def generate_all(self, result: InvestmentMemoResult, ticker: str) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
         json_path = self._save_json(result, ticker)
-        md_path = self._save_markdown(result, ticker)
+        # md_path = self._save_markdown(result, ticker)
+        md_path = None
         # pdf_path = self.pdf.generate(result, ticker)
         pdf_path = None
         return json_path, md_path, pdf_path

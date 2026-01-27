@@ -524,7 +524,7 @@ class DataCollector:
             download_date = datetime.fromisoformat(metadata['download_date'])
             days_old = (datetime.now() - download_date).days
 
-            if interval == '1d' and days_old > 7:
+            if interval == '1d' and days_old > 1:
                 return False
             elif interval == '1h' and days_old > 1:
                 return False

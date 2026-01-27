@@ -2558,14 +2558,17 @@ if __name__ == "__main__":
     from performance_metrics import PerformanceAnalyser
     from monte_carlo import MonteCarloSimulator
 
+    # Get ticker from command line or default to AAPL
+    TICKER = sys.argv[1].upper() if len(sys.argv) > 1 else "AAPL"
+
     print("=" * 70)
-    print("LLM AGENT TEST")
+    print(f"LLM AGENT TEST - {TICKER}")
     print("=" * 70)
 
     # Load and process data
     print("\nLoading data...")
     collector = DataCollector()
-    data = collector.get_data('AAPL', years=10)
+    data = collector.get_data(TICKER, years=10)
 
     print("Processing indicators...")
     ti = TechnicalIndicators(data)
@@ -2604,7 +2607,7 @@ if __name__ == "__main__":
     print("\nCreating analysis context...")
     context = create_context_from_data(
         data,
-        ticker='AAPL',
+        ticker=TICKER,
         performance_report=report,
         mc_result=mc_result,
         position_sizer=engine.position_sizer

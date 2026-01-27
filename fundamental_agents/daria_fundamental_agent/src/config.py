@@ -565,7 +565,7 @@ class ValidationConfig:
 class AlphaVantageConfig:
     """Alpha Vantage API configuration."""
     
-    api_key: str = os.getenv("ALPHA_VANTAGE_API_KEY", "9GZT5T05DZS83LAE")
+    api_key: str = os.getenv("ALPHA_VANTAGE_KEY_DARIA", "9GZT5T05DZS83LAE")
     base_url: str = "https://www.alphavantage.co/query"
     request_timeout: int = 30
     rate_limit_seconds: float = 12.0

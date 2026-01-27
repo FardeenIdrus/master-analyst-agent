@@ -2414,9 +2414,9 @@ def main():
     
     print_collection_summary(result)
     
-    # Save Phase 1 JSON
-    output_path = collector.save_to_json(result)
-    print(f"\n  Data saved to: {output_path}")
+    # Save Phase 1 JSON (disabled - only final memo goes to shared_outputs)
+    # output_path = collector.save_to_json(result)
+    # print(f"\n  Data saved to: {output_path}")
     
     # Phase 2: Validation (unless --phase1-only)
     if not args.phase1_only and result.is_valid:
@@ -2435,9 +2435,9 @@ def main():
         
         print_validation_summary(validated.validation_summary)
         
-        # Save Phase 2 report
-        report_path = validator.save_report(validated)
-        print(f"\n  Validation report saved to: {report_path}")
+        # Save Phase 2 report (disabled)
+        # report_path = validator.save_report(validated)
+        # print(f"\n  Validation report saved to: {report_path}")
         
         # Phase 3: Ratio Analysis (unless --phase2-only)
         if not args.phase2_only and validated.is_valid:
@@ -2456,9 +2456,9 @@ def main():
             else:
                 print_ratio_summary(ratio_result)
             
-            # Save Phase 3 report
-            ratio_path = analyzer.save_report(ratio_result)
-            print(f"\n  Ratio analysis saved to: {ratio_path}")
+            # Save Phase 3 report (disabled)
+            # ratio_path = analyzer.save_report(ratio_result)
+            # print(f"\n  Ratio analysis saved to: {ratio_path}")
             
             # Phase 4: DuPont Analysis (unless --phase3-only)
             if not args.phase3_only and ratio_result.is_valid:
@@ -2475,9 +2475,9 @@ def main():
                 else:
                     print_dupont_summary(dupont_result)
                 
-                # Save Phase 4 report
-                dupont_path = dupont_analyzer.save_report(dupont_result)
-                print(f"\n  DuPont analysis saved to: {dupont_path}")
+                # Save Phase 4 report (disabled)
+                # dupont_path = dupont_analyzer.save_report(dupont_result)
+                # print(f"\n  DuPont analysis saved to: {dupont_path}")
                 
                 # Phase 5: DCF Valuation (unless --phase4-only or DCF not available)
                 if not args.phase4_only and DCF_AVAILABLE and dupont_result.is_valid:
@@ -2494,9 +2494,9 @@ def main():
                     else:
                         print_dcf_summary(dcf_result)
                     
-                    # Save Phase 5 report
-                    dcf_path = dcf_valuator.save_report(dcf_result)
-                    print(f"\n  DCF valuation saved to: {dcf_path}")
+                    # Save Phase 5 report (disabled)
+                    # dcf_path = dcf_valuator.save_report(dcf_result)
+                    # print(f"\n  DCF valuation saved to: {dcf_path}")
                     
                     # Phase 6: DDM Valuation (unless --phase5-only or DDM not available)
                     if not args.phase5_only and DDM_AVAILABLE and dcf_result.is_valid:
@@ -2513,10 +2513,10 @@ def main():
                         else:
                             print_ddm_summary(ddm_result)
                         
-                        # Save Phase 6 report
-                        if ddm_result.is_applicable:
-                            ddm_path = ddm_valuator.save_report(ddm_result)
-                            print(f"\n  DDM valuation saved to: {ddm_path}")
+                        # Save Phase 6 report (disabled)
+                        # if ddm_result.is_applicable:
+                        #     ddm_path = ddm_valuator.save_report(ddm_result)
+                        #     print(f"\n  DDM valuation saved to: {ddm_path}")
                         
                         print()
                         print_line()
@@ -2543,10 +2543,10 @@ def main():
                             else:
                                 print_multiples_summary(multiples_result)
                             
-                            # Save Phase 7 report
-                            if multiples_result.is_valid:
-                                multiples_path = multiples_valuator.save_report(multiples_result)
-                                print(f"\n  Multiples valuation saved to: {multiples_path}")
+                            # Save Phase 7 report (disabled)
+                            # if multiples_result.is_valid:
+                            #     multiples_path = multiples_valuator.save_report(multiples_result)
+                            #     print(f"\n  Multiples valuation saved to: {multiples_path}")
                             
                             print()
                             print_line()
@@ -2581,9 +2581,9 @@ def main():
                                 else:
                                     print_accuracy_summary(accuracy_result)
                                 
-                                # Save Phase 8 report
-                                accuracy_path = accuracy_checker.save_report(accuracy_result)
-                                print(f"\n  Accuracy report saved to: {accuracy_path}")
+                                # Save Phase 8 report (disabled)
+                                # accuracy_path = accuracy_checker.save_report(accuracy_result)
+                                # print(f"\n  Accuracy report saved to: {accuracy_path}")
                                 
                                 print()
                                 print_line()
@@ -2619,9 +2619,9 @@ def main():
                                         else:
                                             print_memo_summary(memo_result)
                                         
-                                        # Save report
-                                        report_path = memo_generator.save_report(memo_result)
-                                        print(f"\n  Memo generation report saved to: {report_path}")
+                                        # Save report (disabled - final JSON already saved to shared_outputs)
+                                        # report_path = memo_generator.save_report(memo_result)
+                                        # print(f"\n  Memo generation report saved to: {report_path}")
                                     else:
                                         print()
                                         print_header("MEMO GENERATION FAILED")
