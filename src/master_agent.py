@@ -146,7 +146,7 @@ def synthesize_with_llm(outputs: list[dict]) -> dict:
 
 You have received {len(outputs)} analyst reports for {TICKER}:
 
-{json.dumps(outputs, indent=2, default=str)[:15000]}
+{json.dumps(outputs, indent=2, default=str)}
 
 Create a detailed, institutional-grade investment recommendation memo. The investment_thesis should be 2-3 pages long (approximately 1500-2500 words) and include:
 
