@@ -812,12 +812,18 @@ class FundamentalAnalyzer:
             print(" ERROR: Invalid shares outstanding, cannot calculate intrinsic price")
             intrinsic_price = None
         
-        # Get current price from cache
+        # Get current price from cache or yfinance fallback
         current_price = None
         if self.market_data_cache and self.market_data_cache.get('currentPrice'):
             current_price = self.market_data_cache['currentPrice']
         else:
-            print("⚠️  WARNING: Current price not in cache")
+            print("⚠️  WARNING: Current price not in cache, attempting yfinance fetch...")
+            current_price = safe_yfinance_call(lambda: self.ticker.info.get("currentPrice", None))
+            if current_price is None:
+                # Try regularMarketPrice as fallback
+                current_price = safe_yfinance_call(lambda: self.ticker.info.get("regularMarketPrice", None))
+            if current_price:
+                print(f"  ✓ Fetched current price from yfinance: ${current_price:.2f}")
         
         return {
             "fcff_base": fcff_0,
@@ -985,11 +991,13 @@ class FundamentalAnalyzer:
             implied_equity = implied_ev - self.net_debt_latest()
             implied_prices["EV/EBITDA"] = implied_equity / shares
 
-        # Use cached current price
+        # Use cached current price or yfinance fallback
         if self.market_data_cache and self.market_data_cache.get('currentPrice'):
             current_price = self.market_data_cache['currentPrice']
         else:
             current_price = safe_yfinance_call(lambda: self.ticker.info.get("currentPrice", None))
+            if current_price is None:
+                current_price = safe_yfinance_call(lambda: self.ticker.info.get("regularMarketPrice", None))
         
         # Calculate average implied price (only if we have valid prices)
         # Filter out outliers: exclude prices that deviate >50% from current price
