@@ -100,6 +100,17 @@ class TradeRecommendation:
     # Performance analysis (merged from analyse_performance)
     performance_analysis: Optional[Dict[str, Any]] = None
 
+    # Enhanced analysis fields (v2)
+    rationale_breakdown: Optional[Dict[str, Any]] = None
+    timeframe_analysis: Optional[Dict[str, Any]] = None
+    stop_loss_reasoning: str = ""
+    target_1_reasoning: str = ""
+    target_2_reasoning: str = ""
+    target_3_reasoning: str = ""
+    confidence_breakdown: Optional[Dict[str, Any]] = None
+    chart_patterns: Optional[Dict[str, Any]] = None
+    invalidation_conditions: Optional[List[str]] = None
+
     def to_dict(self) -> Dict[str, Any]:
         result = {
             'recommendation': self.recommendation.value,
@@ -128,6 +139,22 @@ class TradeRecommendation:
             result['resistance_levels'] = self.resistance_levels
         if self.performance_analysis:
             result['performance_analysis'] = self.performance_analysis
+        if self.rationale_breakdown:
+            result['rationale_breakdown'] = self.rationale_breakdown
+        if self.timeframe_analysis:
+            result['timeframe_analysis'] = self.timeframe_analysis
+        if self.stop_loss_reasoning:
+            result['stop_loss_reasoning'] = self.stop_loss_reasoning
+        if self.target_1_reasoning:
+            result['target_1_reasoning'] = self.target_1_reasoning
+            result['target_2_reasoning'] = self.target_2_reasoning
+            result['target_3_reasoning'] = self.target_3_reasoning
+        if self.confidence_breakdown:
+            result['confidence_breakdown'] = self.confidence_breakdown
+        if self.chart_patterns:
+            result['chart_patterns'] = self.chart_patterns
+        if self.invalidation_conditions:
+            result['invalidation_conditions'] = self.invalidation_conditions
         return result
 
 
@@ -404,24 +431,50 @@ ANALYSIS FRAMEWORK:
    - Key support/resistance levels to watch
    - What price action would cause an early exit?
 
-5. Trade Specification (required for BUY/SELL, optional for HOLD)
-   - Entry price with reasoning
-   - Stop loss level based on ATR or key technical support
-   - Three take profit targets: conservative (T1), base case (T2), aggressive (T3)
+5. Catalysts (COMPANY-SPECIFIC - DO NOT USE GENERIC CATALYSTS)
+   - Identify 2-3 SPECIFIC upcoming bullish catalysts for THIS company
+     Examples: "Q2 earnings on July 25", "iPhone 16 launch September", "WWDC announcements June 10"
+   - Identify 2 SPECIFIC bearish catalysts or headwinds for THIS company
+     Examples: "EU DMA compliance deadline March 7", "DOJ antitrust trial ruling expected Q2"
+   - DO NOT use generic catalysts like "positive earnings" or "new product launch"
+   - Reference specific dates, events, or known business developments
+
+6. Trade Specification (required for BUY/SELL, optional for HOLD)
+   - Entry price with reasoning (explain WHY this level - e.g., "at current price near SMA support")
+   - Stop loss level with specific reasoning (e.g., "2x ATR below entry" or "below swing low at $X")
+   - Three take profit targets with reasoning for each:
+     * T1 (conservative): Based on what technical level?
+     * T2 (base case): Based on what technical level?
+     * T3 (aggressive): Based on what technical level?
    - Position size recommendation based on current volatility regime
    - Risk/reward ratio
 
-6. Scenario Analysis (WITH PROBABILITIES)
+7. Scenario Analysis (WITH PROBABILITIES)
    - Bull case (20-40% probability): Target price, % return, key drivers
    - Base case (40-50% probability): Target price, % return, key drivers
    - Bear case (20-35% probability): Target price, % return (negative), key drivers
    - Calculate expected value: weighted average of scenario returns
 
-7. Investment Thesis (2-3 sentences)
-   - Synthesize why this {signal} is compelling at current levels
-   - What makes this an institutional-quality opportunity?
+8. Investment Thesis (3-4 PARAGRAPHS - THIS IS CRITICAL)
+   Write a detailed, institutional-quality investment thesis that includes:
 
-8. Strategy Performance Assessment (if backtest metrics provided)
+   PARAGRAPH 1 - PRIMARY SETUP: Describe the core technical setup driving this {signal}.
+   What is the dominant pattern or condition? Why does it matter at current levels?
+   Reference specific indicator values (e.g., "RSI at 55 with positive divergence").
+
+   PARAGRAPH 2 - SIGNAL CONFLUENCE: Detail which indicators agree vs disagree.
+   Explain the weight of evidence - why do the confirming signals outweigh conflicts?
+   Be specific: "4 of 6 momentum indicators are bullish while 2 show neutral readings."
+
+   PARAGRAPH 3 - HISTORICAL CONTEXT: Have we seen similar setups before?
+   What typically happens in this regime with these indicator readings?
+   Reference the backtest win rate and historical patterns if available.
+
+   PARAGRAPH 4 - EXECUTION GUIDANCE: What would change this recommendation?
+   Specify exact price levels or indicator readings that would invalidate the thesis.
+   What should the trader monitor most closely?
+
+9. Strategy Performance Assessment (if backtest metrics provided)
    - Evaluate CAGR vs benchmarks (S&P ~10% annually)
    - Assess Sharpe ratio quality (>1 good, >2 excellent)
    - Review Monte Carlo percentile (>60th suggests real edge vs luck)
@@ -437,20 +490,49 @@ Provide your analysis in this exact JSON structure:
     "recommendation": "{signal}",
     "confidence": {confidence},
     "rationale": "Comprehensive 4-6 sentence explanation covering: (1) why the signal was generated, (2) key supporting indicators, (3) regime context, (4) any conflicts and why they were outweighed",
+    "rationale_breakdown": {{
+        "primary_drivers": ["indicator 1 with value", "indicator 2 with value"],
+        "confirming_signals": ["signal 1", "signal 2"],
+        "conflicting_signals": ["conflict 1 and why outweighed", "conflict 2 and why outweighed"],
+        "decision_logic": "One sentence explaining the final weighing of evidence"
+    }},
     "technical_analysis_summary": "4-6 sentence institutional-quality narrative explaining the complete technical picture.",
+    "timeframe_analysis": {{
+        "primary_timeframe": "daily",
+        "trend_daily": "bullish|bearish|neutral",
+        "trend_weekly": "bullish|bearish|neutral",
+        "timeframe_alignment": "aligned|mixed|conflicting"
+    }},
     "entry_price": float,
     "stop_loss": float,
+    "stop_loss_reasoning": "Explain why this stop level (e.g., '2x ATR below entry' or 'below key swing low')",
     "take_profit": float,
     "target_1": float,
+    "target_1_reasoning": "Why this level (e.g., 'SMA 50 resistance')",
     "target_2": float,
+    "target_2_reasoning": "Why this level (e.g., 'Previous swing high')",
     "target_3": float,
+    "target_3_reasoning": "Why this level (e.g., 'Fibonacci 161.8% extension')",
     "position_size_pct": 0.0-1.0,
     "risk_reward_ratio": float,
     "risks": ["Risk 1 with trigger; mitigation through X", "Risk 2 with trigger; mitigation through Y", "Risk 3", "Risk 4"],
-    "catalysts": ["Bullish catalyst 1", "Bullish catalyst 2", "Bearish catalyst 1", "Bearish catalyst 2"],
+    "catalysts": ["SPECIFIC bullish catalyst for THIS ticker (e.g., 'Upcoming iPhone 16 launch in September')", "Another SPECIFIC bullish catalyst", "SPECIFIC bearish catalyst for THIS ticker (e.g., 'DOJ antitrust ruling expected Q2')", "Another SPECIFIC bearish catalyst"],
     "time_horizon": "intraday|swing|position",
     "support_levels": [nearest_support_price, secondary_support_price],
     "resistance_levels": [nearest_resistance_price, secondary_resistance_price],
+    "confidence_breakdown": {{
+        "base_score": 50,
+        "momentum_contribution": float (-20 to +20),
+        "trend_contribution": float (-20 to +20),
+        "regime_contribution": float (-20 to +20),
+        "volume_contribution": float (-10 to +10),
+        "interpretation": "Explain why confidence is high/medium/low"
+    }},
+    "chart_patterns": {{
+        "detected": ["pattern 1", "pattern 2"],
+        "forming": ["potential pattern"],
+        "pattern_implication": "What these patterns suggest for price action"
+    }},
     "scenarios": {{
         "bull_case": {{
             "probability": 0.25-0.35,
@@ -472,7 +554,8 @@ Provide your analysis in this exact JSON structure:
         }},
         "expected_value_pct": float
     }},
-    "investment_thesis": "2-3 sentence synthesis of why this {signal} is compelling at current levels and what makes it institutional-quality",
+    "investment_thesis": "FULL 3-4 PARAGRAPH thesis as described above. This must be detailed and institutional-quality, not just 2-3 sentences.",
+    "invalidation_conditions": ["Specific condition 1 that would invalidate thesis", "Condition 2", "Condition 3"],
     "performance_analysis": {{
         "summary": "One paragraph assessment of strategy quality based on backtest metrics",
         "overall_assessment": "excellent|good|fair|poor",
@@ -864,6 +947,17 @@ Provide your analysis following the chain-of-thought framework and output in JSO
             # Extract performance analysis (merged from separate API call)
             performance_analysis = data.get('performance_analysis', None)
 
+            # Extract enhanced analysis fields (v2)
+            rationale_breakdown = data.get('rationale_breakdown', None)
+            timeframe_analysis = data.get('timeframe_analysis', None)
+            stop_loss_reasoning = data.get('stop_loss_reasoning', '')
+            target_1_reasoning = data.get('target_1_reasoning', '')
+            target_2_reasoning = data.get('target_2_reasoning', '')
+            target_3_reasoning = data.get('target_3_reasoning', '')
+            confidence_breakdown = data.get('confidence_breakdown', None)
+            chart_patterns = data.get('chart_patterns', None)
+            invalidation_conditions = data.get('invalidation_conditions', None)
+
             return TradeRecommendation(
                 recommendation=rec_map.get(data.get('recommendation', 'HOLD'), Recommendation.HOLD),
                 confidence=float(confidence),
@@ -884,7 +978,16 @@ Provide your analysis following the chain-of-thought framework and output in JSO
                 investment_thesis=investment_thesis,
                 support_levels=support_levels,
                 resistance_levels=resistance_levels,
-                performance_analysis=performance_analysis
+                performance_analysis=performance_analysis,
+                rationale_breakdown=rationale_breakdown,
+                timeframe_analysis=timeframe_analysis,
+                stop_loss_reasoning=stop_loss_reasoning,
+                target_1_reasoning=target_1_reasoning,
+                target_2_reasoning=target_2_reasoning,
+                target_3_reasoning=target_3_reasoning,
+                confidence_breakdown=confidence_breakdown,
+                chart_patterns=chart_patterns,
+                invalidation_conditions=invalidation_conditions
             )
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
@@ -1232,7 +1335,7 @@ Strengths:
                 "volatility_regime": context.volatility_regime,
                 "trend_persistence": context.trend_persistence,
                 "hurst_exponent": context.hurst_exponent,
-                "hurst_interpretation": "trending" if context.hurst_exponent > 0.5 else "mean_reverting",
+                "hurst_interpretation": "trending" if context.hurst_exponent > 0.55 else ("mean_reverting" if context.hurst_exponent < 0.45 else "random_walk"),
                 "regime_confidence": context.regime_confidence
             },
             "signal_system": {
@@ -1271,6 +1374,30 @@ Strengths:
                 "support": recommendation.support_levels,
                 "resistance": recommendation.resistance_levels
             }
+
+        # Add enhanced analysis fields (v2)
+        if recommendation.rationale_breakdown:
+            output["rationale_breakdown"] = recommendation.rationale_breakdown
+
+        if recommendation.timeframe_analysis:
+            output["timeframe_analysis"] = recommendation.timeframe_analysis
+
+        if recommendation.stop_loss_reasoning:
+            output["trade_specifications"]["stop_loss_reasoning"] = recommendation.stop_loss_reasoning
+
+        if recommendation.target_1_reasoning:
+            output["trade_specifications"]["target_1_reasoning"] = recommendation.target_1_reasoning
+            output["trade_specifications"]["target_2_reasoning"] = recommendation.target_2_reasoning
+            output["trade_specifications"]["target_3_reasoning"] = recommendation.target_3_reasoning
+
+        if recommendation.confidence_breakdown:
+            output["confidence_breakdown"] = recommendation.confidence_breakdown
+
+        if recommendation.chart_patterns:
+            output["chart_patterns"] = recommendation.chart_patterns
+
+        if recommendation.invalidation_conditions:
+            output["invalidation_conditions"] = recommendation.invalidation_conditions
 
         # Add component scores if available
         if context.overall_score is not None:
