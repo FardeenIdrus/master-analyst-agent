@@ -30,7 +30,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Import components
-from config import ALPHA_VANTAGE_KEY, OPENAI_KEY
+from config import ALPHA_VANTAGE_KEY, OPENAI_KEY, ANTHROPIC_KEY
 from src.datacollector import DataCollector
 from src.Ratios.profitability import ProfitabilityAnalysis
 from src.Ratios.liquidity import LiquidityAnalysis
@@ -306,16 +306,43 @@ Write these EXACT sections (use ||| as separator between sections):
 Be specific with ALL numbers. Professional institutional tone. No generic statements."""
 
         print(f"    → Generating analysis sections...")
-        
-        client = openai.OpenAI(api_key=OPENAI_KEY)
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=2500,
-            temperature=0.7
-        )
-        
-        raw = response.choices[0].message.content
+
+        raw = None
+
+        # Try Anthropic first
+        if ANTHROPIC_KEY:
+            try:
+                from anthropic import Anthropic
+                print(f"    → Using Anthropic Claude...")
+                client = Anthropic(api_key=ANTHROPIC_KEY)
+                response = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=2500,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                raw = response.content[0].text
+            except Exception as e:
+                print(f"    ⚠ Anthropic failed: {e}")
+                raw = None
+
+        # Fallback to OpenAI
+        if raw is None and OPENAI_KEY:
+            try:
+                print(f"    → Falling back to OpenAI...")
+                client = openai.OpenAI(api_key=OPENAI_KEY)
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=2500,
+                    temperature=0.7
+                )
+                raw = response.choices[0].message.content
+            except Exception as e:
+                print(f"    ⚠ OpenAI failed: {e}")
+                raw = None
+
+        if raw is None:
+            raise RuntimeError("Both Anthropic and OpenAI API calls failed. Check your API keys.")
         
         # Parse sections
         self.report_sections = {}

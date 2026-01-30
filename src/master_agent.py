@@ -993,10 +993,7 @@ def synthesize_with_llm(
     key_levels: dict,
     current_price: Optional[float],
 ) -> dict:
-    """Send structured prompt to LLM for synthesis."""
-    from openai import OpenAI
-
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    """Send structured prompt to LLM for synthesis. Uses Anthropic (Claude) as primary, OpenAI as fallback."""
 
     prompt = build_synthesis_prompt(
         TICKER, agent_data, raw_outputs, consensus, conflicts,
@@ -1005,17 +1002,50 @@ def synthesize_with_llm(
 
     print(f"  Prompt length: {len(prompt):,} chars")
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=8000,
-        temperature=0.3  # Slightly higher for more nuanced reasoning
-    )
+    # Try Anthropic first
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
 
-    text = response.choices[0].message.content
+    text = None
+
+    if anthropic_key:
+        try:
+            from anthropic import Anthropic
+            print("  Using Anthropic Claude...")
+            client = Anthropic(api_key=anthropic_key)
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=8000,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            text = response.content[0].text
+        except Exception as e:
+            print(f"  Anthropic failed: {e}")
+            text = None
+
+    # Fallback to OpenAI
+    if text is None and openai_key:
+        try:
+            from openai import OpenAI
+            print("  Falling back to OpenAI GPT-4...")
+            client = OpenAI(api_key=openai_key)
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=8000,
+                temperature=0.3
+            )
+            text = response.choices[0].message.content
+        except Exception as e:
+            print(f"  OpenAI failed: {e}")
+            text = None
+
+    if text is None:
+        raise RuntimeError("Both Anthropic and OpenAI API calls failed. Check your API keys.")
 
     # Extract JSON from response (handle potential markdown wrapping)
     text = text.strip()
