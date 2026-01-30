@@ -340,7 +340,7 @@ Be specific with ALL numbers. Professional institutional tone. No generic statem
         reports_dir.mkdir(exist_ok=True)
         
         # JSON only - matching master agent naming convention
-        json_path = reports_dir / f"fundamental_larry_{self.ticker}.json"
+        json_path = reports_dir / f"fundamental_lary_{self.ticker}.json"
         
         data = {
             "metadata": {
