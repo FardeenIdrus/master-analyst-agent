@@ -48,10 +48,10 @@ FUNDAMENTAL_AGENTS = ["fundamental_daria", "fundamental_shakzod", "fundamental_l
 # Agent registry: (display_name, entry_script_path)
 AGENTS = [
     ("technical_fardeen", REPO_ROOT / "technical_agents" / "fardeen_technical_agent" / "src" / "llm_agent.py"),
-    ("fundamental_daria", REPO_ROOT / "fundamental_agents" / "daria_fundamental_agent" / "run_demo.py"),
-    ("fundamental_shakzod", REPO_ROOT / "fundamental_agents" / "shakzod_fundamental_agent" / "run_demo.py"),
-    ("fundamental_lary", REPO_ROOT / "fundamental_agents" / "lary_fundamental_agent" / "agents.py"),
-    ("fundamental_mohamed", REPO_ROOT / "fundamental_agents" / "mohamed_fundamental_agent" / "src" / "ai_agent.py"),
+    # ("fundamental_daria", REPO_ROOT / "fundamental_agents" / "daria_fundamental_agent" / "run_demo.py"),
+    # ("fundamental_shakzod", REPO_ROOT / "fundamental_agents" / "shakzod_fundamental_agent" / "run_demo.py"),
+    # ("fundamental_lary", REPO_ROOT / "fundamental_agents" / "lary_fundamental_agent" / "agents.py"),
+    # ("fundamental_mohamed", REPO_ROOT / "fundamental_agents" / "mohamed_fundamental_agent" / "src" / "ai_agent.py"),
     ("technical_tamer", REPO_ROOT / "technical_agents" / "tamer_technical_agent" / "run_demo.py"),
 ]
 
@@ -593,6 +593,103 @@ def get_current_price(agent_data: dict) -> Optional[float]:
                         except (ValueError, TypeError):
                             pass
     return None
+
+
+def extract_performance_metrics(agent_data: dict) -> dict:
+    """Extract backtest/performance metrics from technical agents."""
+    metrics = {
+        "sharpe_ratio": None,
+        "sortino_ratio": None,
+        "calmar_ratio": None,
+        "volatility": None,
+        "max_drawdown": None,
+        "win_rate": None,
+        "profit_factor": None,
+        "total_trades": None,
+        "var_95": None,
+        "cagr": None,
+    }
+
+    # Collect metrics from all technical agents
+    tech_metrics = []
+
+    for agent, data in agent_data.items():
+        if agent not in TECHNICAL_AGENTS:
+            continue
+
+        output = data.get("output", {})
+        agent_metrics = {}
+
+        # Try nested structure first (Fardeen's format)
+        backtest = output.get("backtest_metrics", {})
+        if backtest:
+            risk_adj = backtest.get("risk_adjusted_metrics", {})
+            risk_met = backtest.get("risk_metrics", {})
+            return_met = backtest.get("return_metrics", {})
+            trade_stats = backtest.get("trade_statistics", {})
+
+            agent_metrics = {
+                "sharpe_ratio": risk_adj.get("sharpe_ratio"),
+                "sortino_ratio": risk_adj.get("sortino_ratio"),
+                "calmar_ratio": risk_adj.get("calmar_ratio"),
+                "profit_factor": risk_adj.get("profit_factor"),
+                "volatility": return_met.get("volatility"),
+                "cagr": return_met.get("cagr"),
+                "max_drawdown": risk_met.get("max_drawdown"),
+                "var_95": risk_met.get("var_95"),
+                "win_rate": trade_stats.get("win_rate"),
+                "total_trades": trade_stats.get("total_trades"),
+            }
+        else:
+            # Try flat structure (Tamer's format)
+            agent_metrics = {
+                "sharpe_ratio": output.get("backtest_sharpe") or output.get("sharpe_ratio"),
+                "sortino_ratio": output.get("backtest_sortino") or output.get("sortino_ratio"),
+                "calmar_ratio": output.get("backtest_calmar") or output.get("calmar_ratio"),
+                "profit_factor": output.get("backtest_profit_factor"),
+                "volatility": output.get("backtest_volatility") or output.get("annual_volatility"),
+                "cagr": output.get("backtest_cagr") or output.get("annual_return"),
+                "max_drawdown": output.get("backtest_max_dd") or output.get("max_drawdown"),
+                "var_95": output.get("var_95") or output.get("var_95_daily"),
+                "win_rate": output.get("backtest_hit_rate"),
+                "total_trades": output.get("backtest_total_trades"),
+            }
+
+        # Only add if we found any metrics
+        if any(v is not None for v in agent_metrics.values()):
+            tech_metrics.append(agent_metrics)
+
+    # Average metrics across technical agents
+    if tech_metrics:
+        for key in metrics.keys():
+            values = [m[key] for m in tech_metrics if m.get(key) is not None]
+            if values:
+                metrics[key] = sum(values) / len(values)
+
+    # Format for display
+    formatted = {}
+    if metrics["sharpe_ratio"] is not None:
+        formatted["sharpe_ratio"] = round(metrics["sharpe_ratio"], 2)
+    if metrics["sortino_ratio"] is not None:
+        formatted["sortino_ratio"] = round(metrics["sortino_ratio"], 2)
+    if metrics["calmar_ratio"] is not None:
+        formatted["calmar_ratio"] = round(metrics["calmar_ratio"], 2)
+    if metrics["volatility"] is not None:
+        formatted["volatility_pct"] = round(metrics["volatility"] * 100, 1)
+    if metrics["max_drawdown"] is not None:
+        formatted["max_drawdown_pct"] = round(metrics["max_drawdown"] * 100, 1)
+    if metrics["win_rate"] is not None:
+        formatted["win_rate_pct"] = round(metrics["win_rate"] * 100, 1)
+    if metrics["profit_factor"] is not None:
+        formatted["profit_factor"] = round(metrics["profit_factor"], 2)
+    if metrics["total_trades"] is not None:
+        formatted["total_trades"] = int(metrics["total_trades"])
+    if metrics["var_95"] is not None:
+        formatted["var_95_pct"] = round(metrics["var_95"] * 100, 2)
+    if metrics["cagr"] is not None:
+        formatted["cagr_pct"] = round(metrics["cagr"] * 100, 1)
+
+    return formatted
 
 
 # =============================================================================
@@ -1362,7 +1459,35 @@ def generate_pdf_report(synthesis: dict, agent_data: dict, charts: dict) -> Opti
         ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cbd5e1')),
     ]))
     story.append(metrics_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 6))
+
+    # Performance Metrics (from technical agents)
+    perf = synthesis.get('performance_metrics', {})
+    if perf:
+        perf_data = [
+            ['Sharpe', f"{perf.get('sharpe_ratio', 'N/A')}", 'Sortino', f"{perf.get('sortino_ratio', 'N/A')}",
+             'Calmar', f"{perf.get('calmar_ratio', 'N/A')}"],
+            ['Max DD', f"{perf.get('max_drawdown_pct', 'N/A')}%", 'Volatility', f"{perf.get('volatility_pct', 'N/A')}%",
+             'Win Rate', f"{perf.get('win_rate_pct', 'N/A')}%"],
+            ['CAGR', f"{perf.get('cagr_pct', 'N/A')}%", 'Profit Factor', f"{perf.get('profit_factor', 'N/A')}",
+             'VaR 95%', f"{perf.get('var_95_pct', 'N/A')}%"],
+        ]
+        perf_table = Table(perf_data, colWidths=[1.0*inch, 1.1*inch, 1.0*inch, 1.1*inch, 1.0*inch, 1.1*inch])
+        perf_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), LIGHT),
+            ('BACKGROUND', (2, 0), (2, -1), LIGHT),
+            ('BACKGROUND', (4, 0), (4, -1), LIGHT),
+            ('TEXTCOLOR', (0, 0), (-1, -1), NAVY),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cbd5e1')),
+        ]))
+        story.append(Paragraph("<i>Technical Strategy Metrics (Backtest)</i>", note_style))
+        story.append(perf_table)
+    story.append(Spacer(1, 8))
 
     # Executive Summary
     story.append(Paragraph("Executive Summary", heading_style))
@@ -1675,6 +1800,15 @@ async def main():
     current_price = get_current_price(agent_data)
     print(f"  Current Price: ${current_price:.2f}" if current_price else "  Current Price: N/A")
 
+    # Extract performance metrics from technical agents
+    perf_metrics = extract_performance_metrics(agent_data)
+    if perf_metrics:
+        print(f"  Performance Metrics (from technical agents):")
+        if "sharpe_ratio" in perf_metrics:
+            print(f"    Sharpe: {perf_metrics['sharpe_ratio']}, Sortino: {perf_metrics.get('sortino_ratio', 'N/A')}, Calmar: {perf_metrics.get('calmar_ratio', 'N/A')}")
+        if "max_drawdown_pct" in perf_metrics:
+            print(f"    Max Drawdown: {perf_metrics['max_drawdown_pct']}%, Volatility: {perf_metrics.get('volatility_pct', 'N/A')}%")
+
     # Step 4: Synthesize with LLM
     print("\n" + "=" * 60)
     print("SYNTHESIZING WITH LLM")
@@ -1685,6 +1819,10 @@ async def main():
         weighted_target, (min_target, max_target), confidence,
         key_levels, current_price
     )
+
+    # Add performance metrics to synthesis
+    if perf_metrics:
+        synthesis["performance_metrics"] = perf_metrics
 
     # Step 5: Generate charts
     print("\n" + "=" * 60)
