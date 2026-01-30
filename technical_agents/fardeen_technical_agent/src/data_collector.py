@@ -385,7 +385,7 @@ class DataCollector:
             validation: Dictionary with validation results
             ticker: Optional ticker symbol
         """
-        title = f"🔍 Data Validation: {ticker}" if ticker else "🔍 Data Validation"
+        title = f" Data Validation: {ticker}" if ticker else "🔍 Data Validation"
         print(f"\n{title}")
         print("=" * 60)
 
@@ -400,7 +400,7 @@ class DataCollector:
         elif validation['quality_score'] >= 75:
             print(" (Good)")
         elif validation['quality_score'] >= 60:
-            print(" (Fair ⚠️)")
+            print(" (Fair )")
         else:
             print(" (Poor)")
 
@@ -420,12 +420,12 @@ class DataCollector:
 
         # Show details for issues if any
         if validation['large_gaps_count'] > 0:
-            print("\n  ⚠️  Large Gaps Detected:")
+            print("\n    Large Gaps Detected:")
             for date, days in validation['large_gaps'][:5]:  # Show first 5
                 print(f"      {date}: {days} day gap")
 
         if validation['outlier_count'] > 0:
-            print("\n  ⚠️  Price Outliers Detected:")
+            print("\n    Price Outliers Detected:")
             for date, change in validation['outliers'][:5]:  # Show first 5
                 print(f"      {date}: {change} change")
 

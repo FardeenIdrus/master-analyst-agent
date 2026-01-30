@@ -234,6 +234,6 @@ if __name__ == "__main__":
         analysis.calculate_all()
         analysis.print_summary()
         
-        print("\n✅ Test passed!")
+        print("\n Test passed!")
     else:
         print("No test data found. Place AAPL CSVs in APPL_Data/ folder.")
