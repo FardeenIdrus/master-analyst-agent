@@ -34,11 +34,11 @@ SHARED_OUTPUTS = REPO_ROOT / "shared_outputs"
 # Agent weights (sum to 1.0)
 AGENT_WEIGHTS = {
     "technical_fardeen": 0.20,
-    "technical_tamer": 0.25,
+    "technical_tamer": 0.30,
     "fundamental_daria": 0.15,
     "fundamental_shakzod": 0.15,
     "fundamental_lary": 0.10,
-    "fundamental_mohamed": 0.15,
+    "fundamental_mohamed": 0.10,
 }
 
 # Agent type classification
@@ -48,10 +48,10 @@ FUNDAMENTAL_AGENTS = ["fundamental_daria", "fundamental_shakzod", "fundamental_l
 # Agent registry: (display_name, entry_script_path)
 AGENTS = [
     ("technical_fardeen", REPO_ROOT / "technical_agents" / "fardeen_technical_agent" / "src" / "llm_agent.py"),
-    # ("fundamental_daria", REPO_ROOT / "fundamental_agents" / "daria_fundamental_agent" / "run_demo.py"),
-    # ("fundamental_shakzod", REPO_ROOT / "fundamental_agents" / "shakzod_fundamental_agent" / "run_demo.py"),
-    # ("fundamental_lary", REPO_ROOT / "fundamental_agents" / "lary_fundamental_agent" / "agents.py"),
-    # ("fundamental_mohamed", REPO_ROOT / "fundamental_agents" / "mohamed_fundamental_agent" / "src" / "ai_agent.py"),
+    ("fundamental_daria", REPO_ROOT / "fundamental_agents" / "daria_fundamental_agent" / "run_demo.py"),
+    ("fundamental_shakzod", REPO_ROOT / "fundamental_agents" / "shakzod_fundamental_agent" / "run_demo.py"),
+    ("fundamental_lary", REPO_ROOT / "fundamental_agents" / "lary_fundamental_agent" / "agents.py"),
+    ("fundamental_mohamed", REPO_ROOT / "fundamental_agents" / "mohamed_fundamental_agent" / "src" / "ai_agent.py"),
     ("technical_tamer", REPO_ROOT / "technical_agents" / "tamer_technical_agent" / "run_demo.py"),
 ]
 
@@ -459,6 +459,52 @@ def calculate_consensus(agent_data: dict) -> dict:
     }
 
 
+def calculate_weighted_recommendation(agent_data: dict) -> dict:
+    """
+    Calculate final recommendation using weighted signal aggregation.
+    Returns the signal with the highest total weight (plurality winner).
+
+    This is the BINDING recommendation - the LLM must use this value.
+    """
+    weights = get_active_weights(list(agent_data.keys()))
+
+    # Sum weights for each signal type
+    signal_weights = {"BUY": 0.0, "HOLD": 0.0, "SELL": 0.0}
+    signal_breakdown = {"BUY": [], "HOLD": [], "SELL": []}
+
+    for agent, data in agent_data.items():
+        signal = data.get("signal", "HOLD")
+        agent_weight = weights.get(agent, 0)
+
+        # Normalize signal variants
+        if signal in ["STRONG_BUY", "BUY"]:
+            normalized = "BUY"
+        elif signal in ["STRONG_SELL", "SELL"]:
+            normalized = "SELL"
+        else:
+            normalized = "HOLD"
+
+        signal_weights[normalized] += agent_weight
+        signal_breakdown[normalized].append((agent, agent_weight, signal))
+
+    # Find plurality winner (highest weight)
+    winner = max(signal_weights, key=signal_weights.get)
+    winner_weight = signal_weights[winner]
+
+    # Calculate margin of victory
+    sorted_weights = sorted(signal_weights.values(), reverse=True)
+    margin = sorted_weights[0] - sorted_weights[1] if len(sorted_weights) > 1 else 1.0
+
+    return {
+        "recommendation": winner,
+        "signal_weights": {k: round(v * 100, 1) for k, v in signal_weights.items()},
+        "winner_weight_pct": round(winner_weight * 100, 1),
+        "margin_pct": round(margin * 100, 1),
+        "breakdown": signal_breakdown,
+        "is_strong_consensus": winner_weight >= 0.6,  # 60%+ agreement
+    }
+
+
 def calculate_confidence(agent_data: dict) -> int:
     """
     Confidence based on agreement level, not agent-reported confidence.
@@ -699,6 +745,8 @@ def extract_performance_metrics(agent_data: dict) -> dict:
 # System prompt for the synthesis LLM
 SYSTEM_PROMPT = """You are a Senior Portfolio Manager at a top-tier institutional asset management firm. You lead the Investment Committee's final recommendation process, synthesizing research from your team of specialized analysts.
 
+Your recommendation will be presented to the Investment Committee and must be defensible with specific data and reasoning.
+
 YOUR ROLE:
 - Synthesize multiple analyst reports into a single, actionable investment recommendation
 - Weigh technical and fundamental perspectives according to the firm's methodology
@@ -706,7 +754,7 @@ YOUR ROLE:
 - Produce institutional-quality investment memos suitable for portfolio allocation decisions
 
 YOUR METHODOLOGY:
-1. SIGNAL AGGREGATION: Weight analyst signals according to the firm's allocation (Technical: 40%, Fundamental: 60%)
+1. SIGNAL AGGREGATION: Weight analyst signals according to the firm's allocation (Technical: 50%, Fundamental: 50%)
 2. CONFLICT RESOLUTION: When analysts disagree, examine their underlying reasoning and data quality to determine which view is more credible
 3. RISK-ADJUSTED RETURNS: Always frame recommendations in terms of expected return vs. downside risk
 4. POSITION SIZING: Recommend appropriate position sizes based on conviction level and risk profile
@@ -805,6 +853,7 @@ def build_synthesis_prompt(
     confidence: int,
     key_levels: dict,
     current_price: Optional[float],
+    weighted_recommendation: Optional[dict] = None,
 ) -> str:
     """Build the structured LLM prompt - industrial grade."""
 
@@ -874,6 +923,36 @@ def build_synthesis_prompt(
     support_str = ", ".join(f"${s:.2f}" for s in key_levels.get("support", [])) or "N/A"
     resistance_str = ", ".join(f"${r:.2f}" for r in key_levels.get("resistance", [])) or "N/A"
 
+    # Build binding recommendation section
+    if weighted_recommendation:
+        wr = weighted_recommendation
+        binding_section = f"""
+**══════════════════════════════════════════════════════════════════════════════**
+**                    BINDING RECOMMENDATION (PRE-CALCULATED)                    **
+**══════════════════════════════════════════════════════════════════════════════**
+
+The final recommendation has been determined algorithmically using weighted signal aggregation:
+
+**RECOMMENDATION: {wr['recommendation']}**
+
+Signal Weight Breakdown:
+- BUY:  {wr['signal_weights']['BUY']:.1f}%
+- HOLD: {wr['signal_weights']['HOLD']:.1f}%
+- SELL: {wr['signal_weights']['SELL']:.1f}%
+
+Winner: {wr['recommendation']} with {wr['winner_weight_pct']:.1f}% of total weight
+Margin of Victory: {wr['margin_pct']:.1f}%
+Strong Consensus: {"Yes" if wr['is_strong_consensus'] else "No"}
+
+**CRITICAL INSTRUCTION:** You MUST use "{wr['recommendation']}" as the "recommendation" field in your JSON output.
+This is NOT negotiable. The recommendation is determined by the weighted voting system, not by your judgment.
+Your role is to EXPLAIN why this recommendation makes sense, not to override it.
+
+**══════════════════════════════════════════════════════════════════════════════**
+"""
+    else:
+        binding_section = ""
+
     prompt = f"""
 ================================================================================
                         INVESTMENT COMMITTEE BRIEFING
@@ -890,12 +969,12 @@ SECTION 1: EXECUTIVE DASHBOARD
 **Target Range (Min-Max):** {target_range_str}
 
 **Analyst Consensus:**
-- Technical Consensus ({tech_count} analysts, 40% weight): {consensus['technical']}
-- Fundamental Consensus ({fund_count} analysts, 60% weight): {consensus['fundamental']}
+- Technical Consensus ({tech_count} analysts, 50% weight): {consensus['technical']}
+- Fundamental Consensus ({fund_count} analysts, 50% weight): {consensus['fundamental']}
 
 **Signal Distribution:** {buys} BUY | {holds} HOLD | {sells} SELL
 **Agreement-Based Confidence:** {confidence}%
-
+{binding_section}
 **Key Technical Levels:**
 - Support: {support_str}
 - Resistance: {resistance_str}
@@ -927,7 +1006,7 @@ SECTION 5: SYNTHESIS REQUIREMENTS
 
 Produce a comprehensive investment recommendation in JSON format. Your output must:
 
-1. **AGGREGATE SIGNALS** using the weighting methodology (Tech 40%, Fund 60%)
+1. **AGGREGATE SIGNALS** using the weighting methodology (Tech 50%, Fund 50%)
 2. **RESOLVE ALL CONFLICTS** explicitly - cite which analyst's reasoning you favor
 3. **SYNTHESIZE REASONING** - reference specific insights from analyst reports
 4. **PROVIDE ACTIONABLE LEVELS** - specific entry, target, and stop-loss prices
@@ -1089,12 +1168,14 @@ def synthesize_with_llm(
     confidence: int,
     key_levels: dict,
     current_price: Optional[float],
+    weighted_recommendation: Optional[dict] = None,
 ) -> dict:
     """Send structured prompt to LLM for synthesis. Uses Anthropic (Claude) as primary, OpenAI as fallback."""
 
     prompt = build_synthesis_prompt(
         TICKER, agent_data, raw_outputs, consensus, conflicts,
-        weighted_target, target_range, confidence, key_levels, current_price
+        weighted_target, target_range, confidence, key_levels, current_price,
+        weighted_recommendation
     )
 
     print(f"  Prompt length: {len(prompt):,} chars")
@@ -1155,19 +1236,35 @@ def synthesize_with_llm(
     text = text.strip()
 
     # Try to parse JSON
+    result = None
     try:
-        return json.loads(text)
+        result = json.loads(text)
     except json.JSONDecodeError:
         # Fallback: try to find JSON object in response
         match = re.search(r'\{[\s\S]*\}', text)
         if match:
             try:
-                return json.loads(match.group())
+                result = json.loads(match.group())
             except json.JSONDecodeError:
                 pass
 
-        print("  Warning: Failed to parse LLM JSON response")
-        return {"raw_response": text, "parse_error": True}
+    # Override recommendation with pre-calculated weighted value (100% deterministic)
+    if result and weighted_recommendation:
+        llm_recommendation = result.get("recommendation", "N/A")
+        binding_recommendation = weighted_recommendation["recommendation"]
+
+        if llm_recommendation != binding_recommendation:
+            print(f"  [OVERRIDE] LLM suggested '{llm_recommendation}' but weighted calculation requires '{binding_recommendation}'")
+
+        result["recommendation"] = binding_recommendation
+        result["weighted_signal_breakdown"] = weighted_recommendation["signal_weights"]
+        result["recommendation_source"] = "weighted_aggregation"
+
+    if result:
+        return result
+
+    print("  Warning: Failed to parse LLM JSON response")
+    return {"raw_response": text, "parse_error": True}
 
 
 # =============================================================================
@@ -1809,6 +1906,14 @@ async def main():
         if "max_drawdown_pct" in perf_metrics:
             print(f"    Max Drawdown: {perf_metrics['max_drawdown_pct']}%, Volatility: {perf_metrics.get('volatility_pct', 'N/A')}%")
 
+    # Calculate weighted recommendation (BINDING - determines final output)
+    weighted_rec = calculate_weighted_recommendation(agent_data)
+    print(f"\n  Weighted Signal Aggregation:")
+    print(f"    BUY:  {weighted_rec['signal_weights']['BUY']:.1f}%")
+    print(f"    HOLD: {weighted_rec['signal_weights']['HOLD']:.1f}%")
+    print(f"    SELL: {weighted_rec['signal_weights']['SELL']:.1f}%")
+    print(f"  → BINDING RECOMMENDATION: {weighted_rec['recommendation']} ({weighted_rec['winner_weight_pct']:.1f}% weight)")
+
     # Step 4: Synthesize with LLM
     print("\n" + "=" * 60)
     print("SYNTHESIZING WITH LLM")
@@ -1817,7 +1922,7 @@ async def main():
     synthesis = synthesize_with_llm(
         raw_outputs, agent_data, consensus, conflicts,
         weighted_target, (min_target, max_target), confidence,
-        key_levels, current_price
+        key_levels, current_price, weighted_rec
     )
 
     # Add performance metrics to synthesis

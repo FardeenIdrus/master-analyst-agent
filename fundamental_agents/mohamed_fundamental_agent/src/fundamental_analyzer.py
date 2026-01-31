@@ -16,6 +16,7 @@ CACHE_PATH = Path("data/cache")
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 MARKET_DATA_CACHE = CACHE_PATH / "market_data_cache.csv"
 PEER_MULTIPLES_CACHE = CACHE_PATH / "peer_multiples_cache.csv"
+CURRENT_MULTIPLES_CACHE = CACHE_PATH / "current_multiples_cache.csv"
 CACHE_EXPIRY_HOURS = 72
 
 
@@ -114,6 +115,65 @@ def save_peer_multiples_cache(df):
         print(f"Warning: Could not save peer cache: {e}")
 
 
+def load_current_multiples_cache(ticker_symbol):
+    """Load cached current multiples for a ticker if fresh."""
+    if not CURRENT_MULTIPLES_CACHE.exists():
+        return None
+
+    try:
+        df = pd.read_csv(CURRENT_MULTIPLES_CACHE)
+        ticker_data = df[df['ticker'] == ticker_symbol]
+
+        if ticker_data.empty:
+            return None
+
+        cached_entry = ticker_data.iloc[-1]
+        timestamp = pd.to_datetime(cached_entry['timestamp'])
+        age = datetime.now() - timestamp
+
+        if age < timedelta(hours=CACHE_EXPIRY_HOURS):
+            print(f"✓ Using cached current multiples for {ticker_symbol} (age: {age.days}d {age.seconds//3600}h)")
+            return {
+                "P/E": cached_entry.get('P/E') if pd.notna(cached_entry.get('P/E')) else None,
+                "Forward P/E": cached_entry.get('Forward P/E') if pd.notna(cached_entry.get('Forward P/E')) else None,
+                "P/B": cached_entry.get('P/B') if pd.notna(cached_entry.get('P/B')) else None,
+                "P/S": cached_entry.get('P/S') if pd.notna(cached_entry.get('P/S')) else None,
+                "EV/EBITDA": cached_entry.get('EV/EBITDA') if pd.notna(cached_entry.get('EV/EBITDA')) else None,
+            }
+        else:
+            print(f"⟳ Current multiples cache expired for {ticker_symbol}. Refreshing...")
+            return None
+    except Exception as e:
+        print(f"Error reading current multiples cache: {e}")
+        return None
+
+
+def save_current_multiples_cache(ticker_symbol, multiples):
+    """Save current multiples to cache with timestamp."""
+    try:
+        if CURRENT_MULTIPLES_CACHE.exists():
+            df = pd.read_csv(CURRENT_MULTIPLES_CACHE)
+            df = df[df['ticker'] != ticker_symbol]
+        else:
+            df = pd.DataFrame()
+
+        new_entry = pd.DataFrame([{
+            'ticker': ticker_symbol,
+            'P/E': multiples.get('P/E'),
+            'Forward P/E': multiples.get('Forward P/E'),
+            'P/B': multiples.get('P/B'),
+            'P/S': multiples.get('P/S'),
+            'EV/EBITDA': multiples.get('EV/EBITDA'),
+            'timestamp': datetime.now().isoformat(),
+        }])
+
+        df = pd.concat([df, new_entry], ignore_index=True)
+        df.to_csv(CURRENT_MULTIPLES_CACHE, index=False)
+        print(f"✓ Cached current multiples for {ticker_symbol}")
+    except Exception as e:
+        print(f"Warning: Could not save current multiples cache: {e}")
+
+
 def safe_yfinance_call(func, max_retries=2, initial_delay=15):
     """Retry yfinance calls with exponential backoff - REDUCED retries to avoid rate limits."""
     for attempt in range(max_retries):
@@ -134,7 +194,7 @@ def fetch_market_data_alpha_vantage(ticker_symbol):
     Fetch current price, beta, and shares outstanding from Alpha Vantage.
     Uses GLOBAL_QUOTE for price and OVERVIEW for beta/shares.
     """
-    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY_MOHAMED")
     if not api_key:
         raise ValueError("ALPHA_VANTAGE_API_KEY not found in .env file")
 
@@ -865,22 +925,34 @@ class FundamentalAnalyzer:
         
         return pd.DataFrame(results)
 
-    def get_current_multiples(self):
-        """Get current valuation multiples for the stock using Alpha Vantage."""
-        api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
+    def get_current_multiples(self, use_cache=True):
+        """Get current valuation multiples for the stock using Alpha Vantage (with caching)."""
+        # Try cache first
+        if use_cache:
+            cached = load_current_multiples_cache(self.ticker_symbol)
+            if cached is not None:
+                return cached
+
+        api_key = os.getenv("ALPHA_VANTAGE_API_KEY_MOHAMED")
 
         try:
+            print(f"  Fetching current multiples for {self.ticker_symbol} from Alpha Vantage...")
             url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={self.ticker_symbol}&apikey={api_key}"
             response = requests.get(url, timeout=10)
             data = response.json()
 
-            return {
+            multiples = {
                 "P/E": float(data.get("TrailingPE")) if data.get("TrailingPE") and data.get("TrailingPE") != "None" else None,
                 "Forward P/E": float(data.get("ForwardPE")) if data.get("ForwardPE") and data.get("ForwardPE") != "None" else None,
                 "P/B": float(data.get("PriceToBookRatio")) if data.get("PriceToBookRatio") and data.get("PriceToBookRatio") != "None" else None,
                 "P/S": float(data.get("PriceToSalesRatioTTM")) if data.get("PriceToSalesRatioTTM") and data.get("PriceToSalesRatioTTM") != "None" else None,
                 "EV/EBITDA": float(data.get("EVToEBITDA")) if data.get("EVToEBITDA") and data.get("EVToEBITDA") != "None" else None,
             }
+
+            # Save to cache
+            save_current_multiples_cache(self.ticker_symbol, multiples)
+            return multiples
+
         except Exception as e:
             print(f"Alpha Vantage multiples failed ({e}), trying yfinance...")
             def fetch_multiples():
@@ -906,7 +978,7 @@ class FundamentalAnalyzer:
                 return cached
 
         print("Fetching peer multiples from Alpha Vantage...")
-        api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
+        api_key = os.getenv("ALPHA_VANTAGE_API_KEY_MOHAMED")
         peer_data = []
 
         for peer in peers:

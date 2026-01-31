@@ -89,6 +89,20 @@ class InvestmentAIAgent:
         current_price = dcf_result['current_price']
         blended_upside = ((blended_price - current_price) / current_price) * 100
 
+        # Helper for None-safe formatting
+        def fmt(val, spec=".2f"):
+            if val is None:
+                return "N/A"
+            try:
+                return f"{val:{spec}}"
+            except (ValueError, TypeError):
+                return "N/A"
+
+        # Extract with None safety
+        curr = multiples.get('current_multiples', {})
+        peer = multiples.get('peer_median_multiples', {})
+        impl = multiples.get('implied_prices', {})
+
         # Prepare data for LLM
         analysis_data = f"""
 Stock: {ticker}
@@ -105,22 +119,22 @@ DCF VALUATION:
 
 MULTIPLES VALUATION:
 Current Multiples:
-- P/E: {multiples['current_multiples']['P/E']:.2f}
-- P/B: {multiples['current_multiples']['P/B']:.2f}
-- P/S: {multiples['current_multiples']['P/S']:.2f}
-- EV/EBITDA: {multiples['current_multiples']['EV/EBITDA']:.2f}
+- P/E: {fmt(curr.get('P/E'))}
+- P/B: {fmt(curr.get('P/B'))}
+- P/S: {fmt(curr.get('P/S'))}
+- EV/EBITDA: {fmt(curr.get('EV/EBITDA'))}
 
 Peer Median Multiples:
-- P/E: {multiples['peer_median_multiples']['P/E']:.2f}
-- P/B: {multiples['peer_median_multiples']['P/B']:.2f}
-- P/S: {multiples['peer_median_multiples']['P/S']:.2f}
-- EV/EBITDA: {multiples['peer_median_multiples']['EV/EBITDA']:.2f}
+- P/E: {fmt(peer.get('P/E'))}
+- P/B: {fmt(peer.get('P/B'))}
+- P/S: {fmt(peer.get('P/S'))}
+- EV/EBITDA: {fmt(peer.get('EV/EBITDA'))}
 
 Implied Prices:
-- P/E: ${multiples['implied_prices']['P/E']:.2f}
-- P/B: ${multiples['implied_prices']['P/B']:.2f}
-- P/S: ${multiples['implied_prices']['P/S']:.2f}
-- EV/EBITDA: ${multiples['implied_prices']['EV/EBITDA']:.2f}
+- P/E: ${fmt(impl.get('P/E'))}
+- P/B: ${fmt(impl.get('P/B'))}
+- P/S: ${fmt(impl.get('P/S'))}
+- EV/EBITDA: ${fmt(impl.get('EV/EBITDA'))}
 - Average: ${multiples['average_implied_price']:.2f}
 - Upside: {((multiples['average_implied_price'] - current_price) / current_price * 100):+.2f}%
 
