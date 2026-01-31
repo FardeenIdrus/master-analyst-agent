@@ -1,6 +1,6 @@
 # Multi-Agent Stock Analysis System
 
-**UCL MSc Financial Technology | IFTE0001: AI Analyst Agents in Asset Management**
+**UCL MSc DIGITAL FINANCE AND BANKING | IFTE0001: AI Analyst Agents in Asset Management**
 
 A multi-agent system that combines technical and fundamental analysis to generate institutional-quality investment recommendations.
 
@@ -24,22 +24,33 @@ This system orchestrates 6 specialized AI agents (2 technical + 4 fundamental) t
 ## Features
 
 **Technical Analysis (Track B)**
-- RSI, MACD, ADX, Bollinger Bands
-- Market regime detection (Hurst exponent)
-- Backtesting with Monte Carlo simulation
-- Position sizing (Kelly criterion, GARCH volatility)
+- Momentum Indicators: RSI, MACD, Stochastic, Williams %R, Rate of Change
+- Trend Analysis: SMA 50/200 crossovers, ADX/DMI system, Aroon, Supertrend, Ichimoku
+- Volatility Systems: Bollinger Bands, Keltner Channels, Donchian Channels, ATR
+- Volume Analysis: OBV, Chaikin Money Flow, Money Flow Index, VWMA
+- Market Regime Detection: Hurst exponent classification (trending vs mean-reverting)
+- Backtesting Engine: 10-year historical testing with 500 Monte Carlo simulations
+- Risk Metrics: Sharpe, Sortino, Calmar ratios, VaR, CVaR, max drawdown
+- Position Sizing: Fractional Kelly criterion with GARCH volatility forecasting
 
 **Fundamental Analysis (Track A)**
-- DCF valuation with sensitivity analysis
-- Multiples valuation (P/E, P/B, P/S, EV/EBITDA)
-- Peer comparison analysis
-- Financial statement analysis
+- DCF Valuation: 5-year FCFF projections, WACC calculation (CAPM), Gordon Growth terminal value
+- Multiples Valuation: P/E, P/B, P/S, EV/EBITDA with peer median comparison
+- Dividend Discount Model: For income-generating stocks
+- DuPont Analysis: ROE decomposition into margin, turnover, and leverage
+- Financial Ratios: Profitability, liquidity, leverage, efficiency, growth metrics
+- Earnings Quality: Accruals ratio, cash conversion analysis
+- Scenario Analysis: Bull/Base/Bear cases with probability-weighted targets
+- Sensitivity Analysis: Terminal growth rate and WACC variations
 
 **Master Agent Orchestration**
-- Weighted signal aggregation (deterministic)
-- Conflict detection and resolution
-- LLM-powered synthesis with binding recommendations
-- PDF report generation
+- Weighted Signal Aggregation: Deterministic recommendation via plurality voting
+- Weight Distribution: Technical 50% (2x20%), Fundamental 50% (4x12.5%)
+- Dynamic Weight Renormalization: Adjusts when agents fail or timeout
+- Conflict Detection: Identifies and explains disagreements between analysts
+- LLM Synthesis: Claude/GPT generates institutional-quality investment memos
+- Binding Recommendations: Pre-calculated signals override LLM suggestions
+- PDF Report Generation: Professional investment committee briefing documents
 
 ## Installation
 
