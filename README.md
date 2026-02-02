@@ -1,6 +1,6 @@
 # Multi-Agent Stock Analysis System
 
-**UCL MSc Financial Technology | IFTE0001: AI Analyst Agents in Asset Management**
+**UCL MSc DIGITAL FINANCE AND BANKING | IFTE0001: AI Analyst Agents in Asset Management**
 
 A multi-agent system that combines technical and fundamental analysis to generate institutional-quality investment recommendations.
 
@@ -18,28 +18,39 @@ This system orchestrates 6 specialized AI agents (2 technical + 4 fundamental) t
         +--+    +--+                  +--+ +--+ +--+ +--+
         |          |                  |    |    |    |
      Fardeen    Tamer              Daria Shak Lary Mohamed
-      (20%)    (20%)               (15%) (15%) (15%) (15%)
+      (25%)    (25%)             (12.5%)(12.5%)(12.5%)(12.5%)
 ```
 
 ## Features
 
 **Technical Analysis (Track B)**
-- RSI, MACD, ADX, Bollinger Bands
-- Market regime detection (Hurst exponent)
-- Backtesting with Monte Carlo simulation
-- Position sizing (Kelly criterion, GARCH volatility)
+- Momentum Indicators: RSI, MACD, Stochastic, Williams %R, Rate of Change
+- Trend Analysis: SMA 50/200 crossovers, ADX/DMI system, Aroon, Supertrend, Ichimoku
+- Volatility Systems: Bollinger Bands, Keltner Channels, Donchian Channels, ATR
+- Volume Analysis: OBV, Chaikin Money Flow, Money Flow Index, VWMA
+- Market Regime Detection: Hurst exponent classification (trending vs mean-reverting)
+- Backtesting Engine: 10-year historical testing with 500 Monte Carlo simulations
+- Risk Metrics: Sharpe, Sortino, Calmar ratios, VaR, CVaR, max drawdown
+- Position Sizing: Fractional Kelly criterion with GARCH volatility forecasting
 
 **Fundamental Analysis (Track A)**
-- DCF valuation with sensitivity analysis
-- Multiples valuation (P/E, P/B, P/S, EV/EBITDA)
-- Peer comparison analysis
-- Financial statement analysis
+- DCF Valuation: 5-year FCFF projections, WACC calculation (CAPM), Gordon Growth terminal value
+- Multiples Valuation: P/E, P/B, P/S, EV/EBITDA with peer median comparison
+- Dividend Discount Model: For income-generating stocks
+- DuPont Analysis: ROE decomposition into margin, turnover, and leverage
+- Financial Ratios: Profitability, liquidity, leverage, efficiency, growth metrics
+- Earnings Quality: Accruals ratio, cash conversion analysis
+- Scenario Analysis: Bull/Base/Bear cases with probability-weighted targets
+- Sensitivity Analysis: Terminal growth rate and WACC variations
 
 **Master Agent Orchestration**
-- Weighted signal aggregation (deterministic)
-- Conflict detection and resolution
-- LLM-powered synthesis with binding recommendations
-- PDF report generation
+- Weighted Signal Aggregation: Deterministic recommendation via plurality voting
+- Weight Distribution: Technical 50% (2x25%), Fundamental 50% (4x12.5%)
+- Dynamic Weight Renormalization: Adjusts when agents fail or timeout
+- Conflict Detection: Identifies and explains disagreements between analysts
+- LLM Synthesis: Claude/GPT generates institutional-quality investment memos
+- Binding Recommendations: Pre-calculated signals override LLM suggestions
+- PDF Report Generation: Professional investment committee briefing documents
 
 ## Installation
 
@@ -157,7 +168,7 @@ The system includes caching to minimize API calls:
 
 ### Technical Agents
 
-**Fardeen (20% weight)**
+**Fardeen (25% weight)**
 - Momentum: RSI (14-period), MACD (12/26/9)
 - Trend: SMA 50/200, ADX for trend strength
 - Volatility: ATR, Bollinger Bands (20-period, 2 std dev)
@@ -166,7 +177,7 @@ The system includes caching to minimize API calls:
 - Position Sizing: Fractional Kelly criterion (0.25x), GARCH volatility adjustment
 - Output: Signal with confidence score, entry/exit levels, scenario analysis
 
-**Tamer (20% weight)**
+**Tamer (25% weight)**
 - Momentum Oscillators: RSI, Stochastic %K/%D, Williams %R, Rate of Change
 - Trend Indicators: MACD with histogram, ADX/DMI system, Aroon, Supertrend
 - Volatility Systems: Bollinger Bands, Keltner Channels, Donchian Channels
@@ -176,14 +187,14 @@ The system includes caching to minimize API calls:
 
 ### Fundamental Agents
 
-**Daria (15% weight)**
+**Daria (12.5% weight)**
 - DCF Valuation: 5-year FCF projection, WACC discount rate, Gordon Growth terminal value
 - Multiples: P/E, P/B, EV/EBITDA with peer comparison
 - DDM: Dividend Discount Model for income stocks
 - DuPont Analysis: ROE decomposition into margin, turnover, leverage
 - Scenario Analysis: Bull/Base/Bear cases with probability weights
 
-**Shakzod (15% weight)**
+**Shakzod (12.5% weight)**
 - 10-step analysis pipeline from data collection to memo generation
 - Profitability Analysis: Margins, returns, operating efficiency
 - Cash Flow Analysis: Operating, investing, financing flows
@@ -191,14 +202,14 @@ The system includes caching to minimize API calls:
 - Working Capital: Liquidity, receivables/payables management
 - Valuation: Multiple methodologies with cross-validation
 
-**Lary (15% weight)**
+**Lary (12.5% weight)**
 - Financial Ratios: Profitability, liquidity, leverage, efficiency, growth
 - Risk Assessment: Quantitative risk scoring model
 - Financial Forecasting: Revenue and earnings projections
 - Valuation: DCF and multiples with sensitivity tables
 - PDF Reports: Institutional-quality formatted output
 
-**Mohamed (15% weight)**
+**Mohamed (12.5% weight)**
 - DCF Valuation: 5-year FCFF projection, WACC (CAPM-based), terminal value
 - Multiples Valuation: P/E, P/B, P/S, EV/EBITDA vs tech sector peers
 - Blended Target: 60% DCF weight + 40% multiples weight
