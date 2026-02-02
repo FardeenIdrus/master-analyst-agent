@@ -173,7 +173,7 @@ The system includes caching to minimize API calls:
 - Trend: SMA 50/200, ADX for trend strength
 - Volatility: ATR, Bollinger Bands (20-period, 2 std dev)
 - Regime Detection: Hurst exponent to classify trending vs mean-reverting markets
-- Backtesting: 10-year historical test with 500 Monte Carlo simulations
+- Backtesting: 10-year historical test with 10,000 Monte Carlo simulations
 - Position Sizing: Fractional Kelly criterion (0.25x), GARCH volatility adjustment
 - Output: Signal with confidence score, entry/exit levels, scenario analysis
 
