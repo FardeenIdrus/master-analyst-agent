@@ -73,7 +73,7 @@ async def run_agent(name: str, script_path: Path) -> dict:
     start = datetime.now()
 
     try:
-        cmd = ["python", str(script_path), TICKER]
+        cmd = [sys.executable, str(script_path), TICKER]
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -89,8 +89,8 @@ async def run_agent(name: str, script_path: Path) -> dict:
             print(f"[{name}] Completed in {duration:.1f}s")
             return {"agent": name, "status": "success", "duration": duration}
         else:
-            print(f"[{name}] Failed: {stderr.decode()[:200]}")
-            return {"agent": name, "status": "failed", "error": stderr.decode()[:500]}
+            print(f"[{name}] Failed: {stderr.decode()[-800:]}")
+            return {"agent": name, "status": "failed", "error": stderr.decode()[-1000:]}
 
     except Exception as e:
         print(f"[{name}] Error: {e}")
@@ -1149,7 +1149,8 @@ CRITICAL CONTENT REQUIREMENTS:
 - All narrative fields MUST meet the minimum word counts specified
 - Reference specific analyst names (Fardeen, Tamer, Shakzod, Lary, Mohamed, Daria) when citing insights
 - Include specific numbers (prices, percentages, ratios) throughout
-- Include at least 3-4 items in catalysts_timeline and monitoring_checklist arrays
+- Include at least 4-5 items in catalysts_timeline and monitoring_checklist arrays
+- monitoring_checklist MUST include these metrics: "RSI (14-day)", "SMA 50", "P/E Ratio", plus at least 1-2 others
 - Include at least 2-3 items in primary_risks array
 
 IMPORTANT: Output ONLY valid JSON. No markdown, no explanatory text outside the JSON structure.

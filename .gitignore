@@ -1,3 +1,8 @@
+*.py[cod]
+.web
+.states
+assets/external/
+*.db
 # Virtual Environment
 venv/
 env/
