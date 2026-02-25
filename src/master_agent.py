@@ -33,12 +33,12 @@ SHARED_OUTPUTS = REPO_ROOT / "shared_outputs"
 
 # Agent weights (sum to 1.0)
 AGENT_WEIGHTS = {
-    "technical_fardeen": 0.20,
-    "technical_tamer": 0.30,
-    "fundamental_daria": 0.15,
-    "fundamental_shakzod": 0.15,
-    "fundamental_lary": 0.10,
-    "fundamental_mohamed": 0.10,
+    "technical_fardeen": 0.25,
+    "technical_tamer": 0.25,
+    "fundamental_daria": 0.125,
+    "fundamental_shakzod": 0.125,
+    "fundamental_lary": 0.125,
+    "fundamental_mohamed": 0.125,
 }
 
 # Agent type classification

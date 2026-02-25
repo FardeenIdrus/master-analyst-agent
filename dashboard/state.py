@@ -28,12 +28,12 @@ SHARED_OUTPUTS = PROJECT_ROOT / "shared_outputs"
 _PROCS: dict[int, subprocess.Popen] = {}
 
 AGENT_REGISTRY = [
-    {"key": "technical_fardeen", "name": "Fardeen", "type": "Technical", "weight": "20%"},
-    {"key": "technical_tamer", "name": "Tamer", "type": "Technical", "weight": "30%"},
-    {"key": "fundamental_daria", "name": "Daria", "type": "Fundamental", "weight": "15%"},
-    {"key": "fundamental_shakzod", "name": "Shakzod", "type": "Fundamental", "weight": "15%"},
-    {"key": "fundamental_lary", "name": "Lary", "type": "Fundamental", "weight": "10%"},
-    {"key": "fundamental_mohamed", "name": "Mohamed", "type": "Fundamental", "weight": "10%"},
+    {"key": "technical_fardeen", "name": "Fardeen", "type": "Technical", "weight": "25%"},
+    {"key": "technical_tamer", "name": "Tamer", "type": "Technical", "weight": "25%"},
+    {"key": "fundamental_daria", "name": "Daria", "type": "Fundamental", "weight": "12.5%"},
+    {"key": "fundamental_shakzod", "name": "Shakzod", "type": "Fundamental", "weight": "12.5%"},
+    {"key": "fundamental_lary", "name": "Lary", "type": "Fundamental", "weight": "12.5%"},
+    {"key": "fundamental_mohamed", "name": "Mohamed", "type": "Fundamental", "weight": "12.5%"},
 ]
 
 # # LARY_FACTS = [
